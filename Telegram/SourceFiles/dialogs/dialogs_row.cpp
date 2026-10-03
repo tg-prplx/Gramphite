@@ -339,9 +339,16 @@ void BasicRow::addRipple(
 		QSize size,
 		Fn<void()> updateCallback) {
 	if (!_ripple) {
+		const auto radius = st::dialogsRowSelectRadius;
 		addRippleWithMask(
 			origin,
-			Ui::RippleAnimation::RectMask(size),
+			Ui::RippleAnimation::MaskByDrawer(size, false, [&](QPainter &p) {
+				p.drawRoundedRect(
+					QRect(QPoint(), size).marginsRemoved(
+						st::dialogsRowSelectMargin),
+					radius,
+					radius);
+			}),
 			std::move(updateCallback));
 	} else {
 		_ripple->add(origin);

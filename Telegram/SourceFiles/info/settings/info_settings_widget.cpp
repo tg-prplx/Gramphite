@@ -13,6 +13,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common_session.h"
 #include "menu/menu_send.h"
 #include "ui/ui_utility.h"
+#include "ui/painter.h"
+#include "ui/widgets/box_content_divider.h"
+#include "ui/widgets/buttons.h"
+#include "ui/widgets/checkbox.h"
+#include "ui/widgets/continuous_sliders.h"
+#include "ui/wrap/vertical_layout.h"
+#include "styles/style_settings.h"
 
 namespace Info {
 namespace Settings {
@@ -38,6 +45,106 @@ object_ptr<ContentWidget> Memento::createWidget(
 }
 
 Memento::~Memento() = default;
+
+namespace {
+
+[[nodiscard]] bool IsSettingsRow(not_null<QWidget*> widget) {
+	if (dynamic_cast<Ui::SettingsButton*>(widget.get())
+		|| dynamic_cast<Ui::Checkbox*>(widget.get())
+		|| dynamic_cast<Ui::ContinuousSlider*>(widget.get())) {
+		return true;
+	}
+	for (const auto child : widget->children()) {
+		if (const auto inner = qobject_cast<QWidget*>(child)) {
+			if (!inner->isHidden() && IsSettingsRow(inner)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+[[nodiscard]] bool IsGroupSeparator(not_null<QWidget*> widget) {
+	if (dynamic_cast<Ui::BoxContentDivider*>(widget.get())) {
+		return true;
+	}
+	auto inner = (QWidget*)nullptr;
+	auto count = 0;
+	for (const auto child : widget->children()) {
+		if (const auto w = qobject_cast<QWidget*>(child)) {
+			if (dynamic_cast<Ui::BoxContentDivider*>(w)
+				&& w->geometry() == widget->rect()) {
+				return true;
+			}
+			inner = w;
+			++count;
+		}
+	}
+	return (count == 1) && IsGroupSeparator(inner);
+}
+
+void SetupGroupedCards(not_null<Ui::RpWidget*> section) {
+	const auto content = [&]() -> Ui::VerticalLayout* {
+		for (const auto child : section->children()) {
+			if (const auto layout = dynamic_cast<Ui::VerticalLayout*>(
+					qobject_cast<QWidget*>(child))) {
+				return layout;
+			}
+		}
+		return nullptr;
+	}();
+	if (!content) {
+		return;
+	}
+	content->heightValue(
+	) | rpl::on_next([=] {
+		section->update();
+	}, section->lifetime());
+	section->paintRequest(
+	) | rpl::on_next([=](QRect clip) {
+		auto p = QPainter(section);
+		p.fillRect(clip, st::settingsPageBg);
+
+		const auto margin = st::settingsCardMargin;
+		const auto radius = st::settingsCardRadius;
+		const auto origin = content->pos();
+		auto hq = PainterHighQualityEnabler(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(st::settingsCardBg);
+		auto top = -1;
+		auto bottom = -1;
+		const auto flush = [&] {
+			if (top >= 0 && bottom > top) {
+				p.drawRoundedRect(
+					QRect(
+						origin.x() + margin,
+						origin.y() + top,
+						content->width() - 2 * margin,
+						bottom - top),
+					radius,
+					radius);
+			}
+			top = bottom = -1;
+		};
+		for (const auto child : content->children()) {
+			const auto widget = qobject_cast<QWidget*>(child);
+			if (!widget || widget->isHidden() || !widget->height()) {
+				continue;
+			} else if (IsGroupSeparator(widget) || !IsSettingsRow(widget)) {
+				flush();
+				continue;
+			}
+			const auto geometry = widget->geometry();
+			if (top < 0) {
+				top = geometry.y();
+			}
+			bottom = std::max(bottom, geometry.y() + geometry.height());
+		}
+		flush();
+	}, section->lifetime());
+}
+
+} // namespace
 
 Widget::Widget(
 	QWidget *parent,
@@ -74,6 +181,7 @@ Widget::Widget(
 	}, _inner->lifetime());
 
 	_inner->setStepDataReference(controller->stepDataReference());
+	SetupGroupedCards(_inner);
 
 	_removesFromStack.events(
 	) | rpl::on_next([=](const std::vector<Type> &types) {
@@ -238,7 +346,7 @@ rpl::producer<QString> Widget::title() {
 
 void Widget::paintEvent(QPaintEvent *e) {
 	if (!_inner->paintOuter(this, maxVisibleHeight(), e->rect())) {
-		ContentWidget::paintEvent(e);
+		QPainter(this).fillRect(e->rect(), st::settingsPageBg);
 	}
 }
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "editor/photo_editor_controls.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "editor/controllers/controllers.h"
 #include "lang/lang_keys.h"
 #include "ui/effects/round_checkbox.h"
@@ -107,7 +108,7 @@ int CheckAction::contentHeight() const {
 void CheckAction::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 	const auto selected = isSelected();
-	p.fillRect(rect(), selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, rect(), selected);
 	RippleButton::paintRipple(p, 0, 0);
 	const auto size = _check.getSize();
 	_check.paint(

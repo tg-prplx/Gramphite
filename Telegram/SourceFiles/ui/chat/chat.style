@@ -321,8 +321,8 @@ historyInfoToast: Toast(defaultToast) {
 }
 historyInfoToastIcon: icon {{ "toast/info", toastFg }};
 
-bubbleRadiusSmall: roundRadiusLarge;
-bubbleRadiusLarge: 16px;
+bubbleRadiusSmall: 6px;
+bubbleRadiusLarge: 18px;
 
 historyPhotoLeft: 14px;
 historyPhotoBubbleMinWidth: 200px;
@@ -1313,7 +1313,7 @@ groupMembersWidgetList: PeerList(defaultPeerList) {
 }
 
 saveMusicInfoMenu: Menu(defaultMenu) {
-	itemBgOver: windowBg;
+	itemBgOver: menuBg;
 	itemFgOver: windowFg;
 	itemPadding: margins(17px, 4px, 17px, 3px);
 }

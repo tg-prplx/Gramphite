@@ -1750,9 +1750,13 @@ void Settings::resetOnLastLogout() {
 	_storiesClickTooltipHidden = false;
 	_ttlVoiceClickTooltipHidden = false;
 	const auto srDisabled = readPref<bool>(kScreenReaderModeDisabledKey);
+	const auto nightApplied = readPref<bool>(kDefaultNightThemeAppliedKey);
 	_prefs.clear();
 	if (srDisabled) {
 		writePref<bool>(kScreenReaderModeDisabledKey, true);
+	}
+	if (nightApplied) {
+		writePref<bool>(kDefaultNightThemeAppliedKey, true);
 	}
 	_ivZoom = 0;
 	_recordVideoMessages = false;

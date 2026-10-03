@@ -39,6 +39,8 @@ namespace Core {
 
 inline constexpr auto kScreenReaderModeDisabledKey
 	= "screen-reader-mode-disabled"_cs;
+inline constexpr auto kDefaultNightThemeAppliedKey
+	= "default-night-theme-applied"_cs;
 
 struct WindowPosition {
 	int32 moncrc = 0;
@@ -1162,7 +1164,7 @@ private:
 	bool _notifyFromAll = true;
 	rpl::variable<bool> _nativeWindowFrame = false;
 	rpl::variable<std::optional<bool>> _systemDarkMode = std::nullopt;
-	rpl::variable<bool> _systemDarkModeEnabled = true;
+	rpl::variable<bool> _systemDarkModeEnabled = false;
 	bool _systemAccentColorEnabled = false;
 	rpl::variable<WindowTitleContent> _windowTitleContent;
 	WindowPosition _windowPosition; // per-window

@@ -7,10 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 using "window/window.style";
 
-mainMenuWidth: 274px;
-mainMenuCoverHeight: 134px;
+mainMenuWidth: 292px;
+mainMenuCoverHeight: 156px;
 mainMenuUserpicLeft: 24px;
-mainMenuUserpicTop: 20px;
+mainMenuUserpicTop: 42px;
 mainMenuCloudButton: IconButton {
 	width: 48px;
 	height: 48px;
@@ -27,22 +27,25 @@ mainMenuResetScaleRight: 12px;
 mainMenuResetScaleTop: 2px;
 mainMenuResetScaleIconLeft: 5px;
 mainMenuCoverNameLeft: 26px;
-mainMenuCoverNameTop: 84px;
+mainMenuCoverNameTop: 106px;
 mainMenuCoverStatusLeft: mainMenuCoverNameLeft;
-mainMenuCoverStatusTop: 103px;
+mainMenuCoverStatusTop: 125px;
 mainMenuSkip: 6px;
 mainMenuFooterHeightMin: 80px;
 mainMenu: Menu(defaultMenu) {
+	itemBg: mainMenuBg;
+	itemBgOver: windowBgOver;
+	ripple: defaultRippleAnimation;
 	itemFg: windowBoldFg;
 	itemFgOver: windowBoldFgOver;
 	itemStyle: semiboldTextStyle;
-	itemIconPosition: point(26px, 8px);
-	itemPadding: margins(76px, 13px, 28px, 13px);
+	itemIconPosition: point(24px, 6px);
+	itemPadding: margins(64px, 11px, 24px, 11px);
 	itemToggle: Toggle(defaultMenuToggle) {
-		toggledFg: mainMenuCoverBg;
+		toggledFg: checkboxFgActive;
 	}
 	itemToggleOver: Toggle(defaultMenuToggleOver) {
-		toggledFg: mainMenuCoverBg;
+		toggledFg: checkboxFgActive;
 	}
 	itemToggleShift: 11px;
 }

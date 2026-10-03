@@ -78,9 +78,9 @@ introCoverDuration: 200;
 
 introNextButton: RoundButton(defaultActiveButton) {
 	width: 300px;
-	height: 42px;
-	radius: 6px;
-	textTop: 11px;
+	height: 44px;
+	radius: 12px;
+	textTop: 12px;
 	style: TextStyle(semiboldTextStyle) {
 		font: font(boxFontSize semibold);
 	}

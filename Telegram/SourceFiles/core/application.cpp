@@ -554,6 +554,7 @@ void Application::startDomain() {
 void Application::startSettingsAndBackground() {
 	Local::rewriteSettingsIfNeeded();
 	Window::Theme::Background()->start();
+	applyDefaultNightTheme();
 	checkSystemDarkMode();
 	Ui::SetScreenReaderModeDisabled(
 		settings().readPref<bool>(kScreenReaderModeDisabledKey));
@@ -566,6 +567,18 @@ void Application::checkSystemDarkMode() {
 		&& maybeDarkMode
 		&& (*maybeDarkMode != Window::Theme::IsNightMode());
 	if (needToSwitch) {
+		Window::Theme::ToggleNightMode();
+		Window::Theme::KeepApplied();
+	}
+}
+
+void Application::applyDefaultNightTheme() {
+	if (settings().readPref<bool>(kDefaultNightThemeAppliedKey)) {
+		return;
+	}
+	settings().writePref<bool>(kDefaultNightThemeAppliedKey, true);
+	const auto &object = Window::Theme::Background()->themeObject();
+	if (!Window::Theme::IsNightMode() && object.pathAbsolute.isEmpty()) {
 		Window::Theme::ToggleNightMode();
 		Window::Theme::KeepApplied();
 	}

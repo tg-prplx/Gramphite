@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/bank_card_click_handler.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "core/click_handler_types.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
@@ -155,7 +156,7 @@ void ResolveBankCardAction::paintEvent(QPaintEvent *e) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), height), selected);
 
 	{
 		p.setPen(selected ? _st.itemFgShortcutOver : _st.itemFgShortcut);

@@ -220,6 +220,7 @@ public:
 	[[nodiscard]] bool isSharingScreen() const;
 
 	void startSettingsAndBackground();
+	void applyDefaultNightTheme();
 	[[nodiscard]] Settings &settings();
 	[[nodiscard]] const Settings &settings() const;
 	void saveSettingsDelayed(crl::time delay = kDefaultSaveDelay);

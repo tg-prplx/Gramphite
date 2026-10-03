@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/phone_click_handler.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "boxes/add_contact_box.h"
 #include "core/click_handler_types.h"
 #include "data/data_session.h"
@@ -152,7 +153,7 @@ void ResolvePhoneAction::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}
@@ -267,7 +268,7 @@ QPoint ResolvePhoneAction::prepareRippleStartPosition() const {
 }
 
 QImage ResolvePhoneAction::prepareRippleMask() const {
-	return Ui::RippleAnimation::RectMask(size());
+	return Ui::Menu::PrepareItemRippleMask(size());
 }
 
 int ResolvePhoneAction::contentHeight() const {

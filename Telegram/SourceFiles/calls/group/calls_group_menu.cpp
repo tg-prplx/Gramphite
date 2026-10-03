@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "calls/group/calls_group_menu.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "calls/group/calls_group_call.h"
 #include "calls/group/calls_group_settings.h"
 #include "calls/group/calls_group_panel.h"
@@ -146,7 +147,7 @@ void JoinAsAction::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}
@@ -216,7 +217,7 @@ QPoint JoinAsAction::prepareRippleStartPosition() const {
 }
 
 QImage JoinAsAction::prepareRippleMask() const {
-	return Ui::RippleAnimation::RectMask(size());
+	return Ui::Menu::PrepareItemRippleMask(size());
 }
 
 int JoinAsAction::contentHeight() const {
@@ -280,7 +281,7 @@ void RecordingAction::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}
@@ -364,7 +365,7 @@ QPoint RecordingAction::prepareRippleStartPosition() const {
 }
 
 QImage RecordingAction::prepareRippleMask() const {
-	return Ui::RippleAnimation::RectMask(size());
+	return Ui::Menu::PrepareItemRippleMask(size());
 }
 
 int RecordingAction::contentHeight() const {

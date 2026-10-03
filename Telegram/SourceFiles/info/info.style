@@ -1012,7 +1012,7 @@ inviteLinkFieldLabelLeft: FlatLabel(inviteLinkFieldLabel) {
 inviteLinkButton: RoundButton(defaultActiveButton) {
 	height: 36px;
 	textTop: 9px;
-	radius: 6px;
+	radius: 10px;
 }
 inviteLinkButtonsPadding: margins(22px, 0px, 22px, 0px);
 inviteLinkButtonsSkip: 10px;

@@ -10,10 +10,12 @@ using "ui/widgets/widgets.style";
 using "info/info.style";
 using "boxes/boxes.style";
 
+settingsCardMargin: 16px;
+settingsCardRadius: 16px;
 settingsButton: SettingsButton(infoProfileButton) {
 	style: boxTextStyle;
-	padding: margins(60px, 10px, 22px, 10px);
-	iconLeft: 20px;
+	padding: margins(64px, 13px, 30px, 13px);
+	iconLeft: 26px;
 }
 settingsButtonRightLabelSpoiler: SettingsButton(settingsButton) {
 	rightLabel: FlatLabel(defaultSettingsRightLabel) {
@@ -23,7 +25,7 @@ settingsButtonRightLabelSpoiler: SettingsButton(settingsButton) {
 	}
 }
 settingsButtonNoIcon: SettingsButton(settingsButton) {
-	padding: margins(22px, 10px, 22px, 8px);
+	padding: margins(30px, 13px, 30px, 13px);
 }
 settingsButtonLight: SettingsButton(settingsButton) {
 	textFg: lightButtonFg;

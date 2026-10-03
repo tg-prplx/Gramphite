@@ -134,18 +134,21 @@ style::colorizer ColorizerFrom(
 		break;
 	case EmbeddedType::Night:
 		result.keepContrast = base::flat_map<QLatin1String, Pair>{ {
-			//{ qstr("windowFgActive"), Pair{ cColor("5288c1"), cColor("17212b") } }, // windowBgActive
-			{ qstr("activeButtonFg"), Pair{ cColor("2f6ea5"), cColor("17212b") } }, // activeButtonBg
-			{ qstr("profileVerifiedCheckFg"), Pair{ cColor("5288c1"), cColor("17212b") } }, // profileVerifiedCheckBg
-			{ qstr("overviewCheckFgActive"), Pair{ cColor("5288c1"), cColor("17212b") } }, // overviewCheckBgActive
-			{ qstr("historyFileInIconFg"), Pair{ cColor("3f96d0"), cColor("182533") } }, // msgFileInBg, msgInBg
-			{ qstr("historyFileInIconFgSelected"), Pair{ cColor("6ab4f4"), cColor("2e70a5") } }, // msgFileInBgSelected, msgInBgSelected
-			{ qstr("historyFileInRadialFg"), Pair{ cColor("3f96d0"), cColor("182533") } }, // msgFileInBg, msgInBg
-			{ qstr("historyFileInRadialFgSelected"), Pair{ cColor("6ab4f4"), cColor("2e70a5") } }, // msgFileInBgSelected, msgInBgSelected
-			{ qstr("historyFileOutIconFg"), Pair{ cColor("4c9ce2"), cColor("2b5278") } }, // msgFileOutBg, msgOutBg
-			{ qstr("historyFileOutIconFgSelected"), Pair{ cColor("58abf3"), cColor("2e70a5") } }, // msgFileOutBgSelected, msgOutBgSelected
-			{ qstr("historyFileOutRadialFg"), Pair{ cColor("4c9ce2"), cColor("2b5278") } }, // msgFileOutBg, msgOutBg
-			{ qstr("historyFileOutRadialFgSelected"), Pair{ cColor("58abf3"), cColor("2e70a5") } }, // msgFileOutBgSelected, msgOutBgSelected
+			{ qstr("dialogsUnreadFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // dialogsUnreadBg
+			{ qstr("dialogsUnreadFgOver"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // dialogsUnreadBgOver
+			{ qstr("dialogsUnreadFgActive"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // dialogsUnreadBgActive
+			{ qstr("sideBarBadgeFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // sideBarBadgeBg
+			{ qstr("boxButtonPrimaryFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // boxButtonPrimaryBg
+			{ qstr("profileVerifiedCheckFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // profileVerifiedCheckBg
+			{ qstr("overviewCheckFgActive"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // overviewCheckBgActive
+			{ qstr("historyFileInIconFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileInBg
+			{ qstr("historyFileInIconFgSelected"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileInBgSelected
+			{ qstr("historyFileInRadialFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileInBg
+			{ qstr("historyFileInRadialFgSelected"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileInBgSelected
+			{ qstr("historyFileOutIconFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileOutBg
+			{ qstr("historyFileOutIconFgSelected"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileOutBgSelected
+			{ qstr("historyFileOutRadialFg"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileOutBg
+			{ qstr("historyFileOutRadialFgSelected"), Pair{ cColor("eceef2"), cColor("ffffff") } }, // msgFileOutBgSelected
 		} };
 		result.lightnessMin = 64;
 		break;
@@ -239,14 +242,14 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 	return {
 		EmbeddedScheme{
 			EmbeddedType::Default,
-			qColor("9bd494"),
-			qColor("eaffdc"),
+			qColor("e6e6e6"),
+			qColor("e2e2e2"),
 			qColor("ffffff"),
-			qColor("eaffdc"),
+			qColor("e2e2e2"),
 			qColor("ffffff"),
 			name(tr::lng_settings_theme_classic),
 			QString(),
-			qColor("40a7e3")
+			qColor("232428")
 		},
 		EmbeddedScheme{
 			EmbeddedType::DayBlue,
@@ -261,14 +264,14 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 		},
 		EmbeddedScheme{
 			EmbeddedType::Night,
-			qColor("485761"),
-			qColor("5ca7d4"),
-			qColor("6b808d"),
-			qColor("6b808d"),
-			qColor("5ca7d4"),
+			qColor("121212"),
+			qColor("2f2f2f"),
+			qColor("212121"),
+			qColor("2f2f2f"),
+			qColor("eceef2"),
 			name(tr::lng_settings_theme_tinted),
 			":/gui/night.tdesktop-theme",
-			qColor("5288c1")
+			qColor("eceef2")
 		},
 		EmbeddedScheme{
 			EmbeddedType::NightGreen,

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/delete_message_context_action.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "ui/widgets/menu/menu_action.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
@@ -101,7 +102,7 @@ void ActionWithTimer::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), _height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), _height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), _height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}
@@ -212,7 +213,7 @@ QPoint ActionWithTimer::prepareRippleStartPosition() const {
 }
 
 QImage ActionWithTimer::prepareRippleMask() const {
-	return Ui::RippleAnimation::RectMask(size());
+	return Ui::Menu::PrepareItemRippleMask(size());
 }
 
 int ActionWithTimer::contentHeight() const {

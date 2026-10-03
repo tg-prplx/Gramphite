@@ -707,11 +707,11 @@ WallPaper WallPaper::FromEmojiId(const QString &emojiId) {
 WallPaper WallPaper::ConstructDefault() {
 	auto result = WallPaper(
 		kDefaultBackground
-	).withPatternIntensity(50).withBackgroundColors({
-		QColor(219, 221, 187),
-		QColor(107, 165, 135),
-		QColor(213, 216, 141),
-		QColor(136, 184, 132),
+	).withPatternIntensity(25).withBackgroundColors({
+		QColor(240, 240, 240),
+		QColor(226, 226, 226),
+		QColor(236, 236, 236),
+		QColor(220, 220, 220),
 	});
 	result._flags |= WallPaperFlag::Default | WallPaperFlag::Pattern;
 	return result;

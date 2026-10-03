@@ -42,7 +42,7 @@ historyPollFillingRight: 4px;
 historyPollRadio: Radio(defaultRadio) {
 	bg: transparent;
 	untoggledFg: checkboxFg;
-	toggledFg: windowBgActive;
+	toggledFg: checkboxFgActive;
 	diameter: 18px;
 	thickness: 2px;
 	skip: 65px; // * 0.1

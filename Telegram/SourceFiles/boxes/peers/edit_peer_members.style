@@ -16,7 +16,7 @@ rightsCheckbox: Checkbox(defaultCheckbox) {
 	rippleBg: attentionButtonBgOver;
 }
 rightsToggle: Toggle(defaultToggle) {
-	toggledFg: windowBgActive;
+	toggledFg: checkboxFgActive;
 	untoggledFg: attentionButtonFg;
 	lockIcon: icon {{ "info/info_rights_lock", windowBgActive }};
 	xsize: 8px;

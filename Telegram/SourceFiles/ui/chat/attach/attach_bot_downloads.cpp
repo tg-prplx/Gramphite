@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/attach/attach_bot_downloads.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "lang/lang_keys.h"
 #include "ui/widgets/menu/menu_item_base.h"
 #include "ui/widgets/labels.h"
@@ -38,7 +39,7 @@ private:
 		return mapFromGlobal(QCursor::pos());
 	}
 	QImage prepareRippleMask() const override {
-		return Ui::RippleAnimation::RectMask(size());
+		return Ui::Menu::PrepareItemRippleMask(size());
 	}
 	int contentHeight() const override { return _height; }
 
@@ -111,7 +112,7 @@ void Action::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), _height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), _height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), _height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}

@@ -89,6 +89,8 @@ dialogsDateFont: font(13px);
 dialogsDateSkip: 5px;
 
 dialogsRowHeight: 62px;
+dialogsRowSelectMargin: listRowSelectMargin;
+dialogsRowSelectRadius: listRowSelectRadius;
 dialogsFilterPadding: point(7px, 7px);
 dialogsFilterSkip: 4px;
 
@@ -322,12 +324,12 @@ dialogsFilter: InputField(defaultInputField) {
 	placeholderFont: normalFont;
 
 	borderFg: filterInputInactiveBg;
-	borderFgActive: windowBgRipple;
+	borderFgActive: filterInputBorderFg;
 	borderFgError: activeLineFgError;
 
 	border: 3px;
 	borderActive: 2px;
-	borderRadius: 18px;
+	borderRadius: 10px;
 	borderDenominator: 2;
 
 	style: defaultTextStyle;
