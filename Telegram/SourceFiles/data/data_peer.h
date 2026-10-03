@@ -323,6 +323,7 @@ public:
 	}
 
 	[[nodiscard]] bool allowsForwarding() const;
+	[[nodiscard]] bool allowsForwardingByServer() const;
 	[[nodiscard]] Data::RestrictionCheckResult amRestricted(
 		ChatRestriction right) const;
 	[[nodiscard]] bool amAnonymous() const;

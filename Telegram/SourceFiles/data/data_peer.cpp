@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "data/data_peer.h"
 
 #include "api/api_sensitive_content.h"
@@ -1734,6 +1736,13 @@ void PeerData::processTopics(const MTPVector<MTPForumTopic> &topics) {
 }
 
 bool PeerData::allowsForwarding() const {
+	if (session().localFeatures().enabled(Core::LocalFeature::CopyProtected)) {
+		return true;
+	}
+	return allowsForwardingByServer();
+}
+
+bool PeerData::allowsForwardingByServer() const {
 	if (const auto user = asUser()) {
 		return user->allowsForwarding();
 	} else if (const auto channel = asChannel()) {

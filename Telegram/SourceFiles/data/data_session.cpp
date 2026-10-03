@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "data/data_session.h"
 
 #include "main/main_session.h"
@@ -3162,6 +3164,9 @@ void Session::registerMessage(not_null<HistoryItem*> item) {
 		i->second->destroy();
 	}
 	list->emplace(itemId, item);
+	if (IsServerMsgId(itemId)) {
+		session().localFeatures().rememberMessage(item);
+	}
 
 	if (!peerIsChannel(peerId) && IsServerMsgId(itemId)) {
 		_nonChannelMessages.emplace(itemId, item);
@@ -3225,6 +3230,9 @@ void Session::checkTTLs() {
 		}
 		expired.insert(expired.end(), items.begin(), items.end());
 	}
+	expired.erase(std::remove_if(expired.begin(), expired.end(), [=](auto item) {
+		return _session->localFeatures().keepDeleted(item, true);
+	}), expired.end());
 	if (!expired.empty()) {
 		notifyItemsAboutToBeDestroyed(expired);
 		for (const auto &item : expired) {
@@ -3339,6 +3347,14 @@ void Session::checkFormattedDateUpdates() {
 	scheduleNextFormattedDateUpdate();
 }
 
+void Session::refreshLocalVisibility() {
+	for (const auto &[peer, messages] : _messages) {
+		for (const auto &[id, item] : messages) {
+			requestItemViewRefresh(item);
+		}
+	}
+}
+
 void Session::processMessagesDeleted(
 		PeerId peerId,
 		const QVector<MTPint> &data) {
@@ -3354,7 +3370,9 @@ void Session::processMessagesDeleted(
 		const auto i = list ? list->find(messageId.v) : Messages::iterator();
 		if (list && i != list->end()) {
 			const auto history = i->second->history();
-			toDestroy.push_back(i->second);
+			if (!_session->localFeatures().keepDeleted(i->second)) {
+				toDestroy.push_back(i->second);
+			}
 			historiesToCheck.emplace(history);
 		} else if (affected) {
 			affected->unknownMessageDeleted(messageId.v);
@@ -3379,7 +3397,9 @@ void Session::processNonChannelMessagesDeleted(const QVector<MTPint> &data) {
 	for (const auto &messageId : data) {
 		if (const auto item = nonChannelMessage(messageId.v)) {
 			const auto history = item->history();
-			toDestroy.push_back(item);
+			if (!_session->localFeatures().keepDeleted(item)) {
+				toDestroy.push_back(item);
+			}
 			historiesToCheck.emplace(history);
 		}
 	}

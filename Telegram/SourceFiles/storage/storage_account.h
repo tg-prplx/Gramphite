@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "base/timer.h"
+#include <QtCore/QJsonObject>
 #include "base/flags.h"
 #include "storage/cache/storage_cache_database.h"
 #include "data/stickers/data_stickers_set.h"
@@ -15,6 +16,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "webview/webview_common.h"
 
 class History;
+
+namespace crl {
+class queue;
+} // namespace crl
 
 namespace Core {
 class FileLocation;
@@ -86,6 +91,14 @@ public:
 	void writeSessionSettings();
 	void writeMtpData();
 	void writeMtpConfig();
+	// Local feature data is kept per Telegram user, outside the account
+	// folder, so that it survives logging out and back in.
+	void setLocalFeaturesUser(uint64 userId);
+	[[nodiscard]] QByteArray readLocalFeatureFile(const QString &key) const;
+	void writeLocalFeatureFile(const QString &key, const QByteArray &data, bool media = false);
+	void removeLocalFeatureFile(const QString &key);
+	void writeLocalFeatureJournal(QJsonObject state);
+	[[nodiscard]] QString localFeaturesArchivePath() const;
 
 	void registerDraftSource(
 		not_null<History*> history,
@@ -383,6 +396,8 @@ private:
 
 	int _oldMapVersion = 0;
 
+	std::unique_ptr<crl::queue> _localFeaturesQueue;
+	uint64 _localFeaturesUser = 0;
 	base::Timer _writeMapTimer;
 	base::Timer _writePrefsTimer;
 	base::Timer _writeLocationsTimer;

@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "api/api_send_progress.h"
 
 #include "main/main_session.h"
@@ -152,6 +154,10 @@ void SendProgressManager::send(const Key &key, int progress) {
 }
 
 bool SendProgressManager::skipRequest(const Key &key) const {
+	if (_session->localFeatures().enabled(Core::LocalFeature::GhostOnline)
+		&& key.type != SendProgressType::Speaking) {
+		return true;
+	}
 	const auto user = key.history->peer->asUser();
 	if (!user) {
 		return false;

@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "data/data_stories.h"
 
 #include "base/unixtime.h"
@@ -1394,6 +1396,9 @@ void Stories::toggleHidden(
 void Stories::sendMarkAsReadRequest(
 		not_null<PeerData*> peer,
 		StoryId tillId) {
+	if (_owner->session().localFeatures().enabled(Core::LocalFeature::GhostStories)) {
+		return;
+	}
 	const auto peerId = peer->id;
 	_markReadRequests.emplace(peerId);
 	const auto finish = [=] {
@@ -1467,6 +1472,11 @@ void Stories::sendIncrementViewsRequests() {
 			}
 			checkQuitPreventFinished();
 		};
+		if (_owner->session().localFeatures().enabled(Core::LocalFeature::GhostStories)) {
+			_incrementViewsRequests.remove(peer);
+			_incrementViewsPending.remove(peer);
+			continue;
+		}
 		api->request(MTPstories_IncrementStoryViews(
 			_owner->peer(peer)->input(),
 			MTP_vector<MTPint>(std::move(ids))

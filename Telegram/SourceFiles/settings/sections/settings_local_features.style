@@ -1,0 +1,114 @@
+/*
+This file is part of Telegram Desktop,
+the official desktop application for the Telegram messaging service.
+
+For license and copyright information please follow this link:
+https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+*/
+using "ui/basic.style";
+using "ui/widgets/widgets.style";
+using "ui/layers/layers.style";
+using "boxes/boxes.style";
+using "info/info.style";
+
+localBoxWidth: 400px;
+localCoverIconSize: 92px;
+localCoverIconPadding: margins(0px, 10px, 0px, 6px);
+localCoverLabelPadding: margins(28px, 0px, 28px, 18px);
+
+localCardRadius: 12px;
+localSkip: 8px;
+localBlockPadding: margins(20px, 6px, 20px, 6px);
+
+localHeaderUserpic: 60px;
+localHeaderUserpicLeft: 22px;
+localHeaderTextLeft: 98px;
+localHeaderNameTop: 13px;
+localHeaderNameFont: font(16px semibold);
+localHeaderLineTop: 37px;
+localHeaderLineSkip: 19px;
+localHeaderFont: font(13px);
+localOnlineDot: 14px;
+localOnlineDotStroke: 2px;
+
+localStatHeight: 64px;
+localStatPadding: margins(12px, 11px, 12px, 0px);
+localStatValueFont: font(16px semibold);
+localStatLabelFont: font(12px);
+localStatLabelTop: 33px;
+
+localChartHeight: 132px;
+localChartPadding: margins(14px, 12px, 14px, 10px);
+localChartTitleFont: font(12px semibold);
+localChartTitleHeight: 22px;
+localChartLabelHeight: 18px;
+localChartLabelFont: font(11px);
+localChartBarSkip: 3px;
+localChartBarMin: 3px;
+
+localCallout: FlatLabel(defaultFlatLabel) {
+	minWidth: 100px;
+	textFg: attentionButtonFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+	}
+}
+localCalloutPadding: margins(14px, 10px, 14px, 10px);
+
+localGroupTitle: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: semiboldTextStyle;
+}
+localGroupTitlePadding: margins(22px, 14px, 22px, 4px);
+localEntryValue: FlatLabel(defaultFlatLabel) {
+	minWidth: 100px;
+	style: boxTextStyle;
+}
+localEntryDate: FlatLabel(defaultFlatLabel) {
+	minWidth: 100px;
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(12px);
+	}
+}
+localEntryPadding: margins(22px, 6px, 22px, 0px);
+localEntryDatePadding: margins(22px, 1px, 22px, 6px);
+
+localAvatarSize: 56px;
+localAvatarSkip: 8px;
+localAvatarsPadding: margins(22px, 6px, 22px, 8px);
+
+localChipHeight: 30px;
+localChipPadding: 14px;
+localChipSkip: 6px;
+localChipFont: font(13px semibold);
+localChipsPadding: margins(20px, 2px, 20px, 10px);
+
+localRowHeight: 60px;
+localRowUserpic: 42px;
+localRowPadding: margins(18px, 9px, 18px, 9px);
+localRowTextLeft: 72px;
+localRowNameTop: 10px;
+localRowStatusTop: 32px;
+localRowNameFont: font(14px semibold);
+localRowStatusFont: font(13px);
+localRowBadgeFont: font(11px semibold);
+localRowBadgePadding: margins(6px, 2px, 6px, 2px);
+
+localBubblePadding: margins(14px, 10px, 14px, 10px);
+localBubbleMargin: margins(20px, 4px, 20px, 4px);
+localBubbleText: FlatLabel(defaultFlatLabel) {
+	minWidth: 100px;
+	style: boxTextStyle;
+}
+localBubbleMeta: FlatLabel(localEntryDate) {
+}
+localBubblePhoto: 180px;
+localNoteLabel: FlatLabel(localEntryDate) {
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+	}
+}
+localNotePadding: margins(22px, 8px, 22px, 8px);
+localSessionHeight: 34px;
+localInfoIcon: icon {{ "menu/stats", infoIconFg, point(4px, 4px) }};

@@ -485,9 +485,12 @@ void BottomInfo::layout() {
 void BottomInfo::layoutDateText() {
 	const auto updated = (_data.flags & Data::Flag::Updated);
 	const auto editedPrimary = !updated
+		&& !(_data.flags & Data::Flag::LocalDeleted)
 		&& (_data.flags & Data::Flag::EditedPrimary)
 		&& !(_data.flags & Data::Flag::ForwardedDate);
-	const auto edited = editedPrimary
+	const auto edited = (_data.flags & Data::Flag::LocalDeleted)
+		? (tr::lng_local_deleted(tr::now) + ' ')
+		: editedPrimary
 		? QString()
 		: updated
 		? (tr::lng_ephemeral_updated(tr::now) + ' ')
@@ -663,6 +666,9 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
 
 	auto result = BottomInfo::Data();
 	result.date = message->dateTime();
+	if (item->locallyDeleted()) {
+		result.flags |= Flag::LocalDeleted;
+	}
 	result.effectId = item->effectId();
 	if (message->hasOutLayout()) {
 		result.flags |= Flag::OutLayout;

@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "calls/calls_instance.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
+#include "core/local_features.h"
 #include "core/file_utilities.h"
 #include "core/mime_type.h"
 #include "core/ui_integration.h"
@@ -6075,7 +6076,8 @@ void OverlayWidget::setSystemMediaControls(
 
 bool OverlayWidget::contentNeedsScreenshotProtection() const {
 	if (const auto story = _stories ? _stories->story() : nullptr) {
-		return story->forbidsForward();
+		return story->forbidsForward()
+			&& !_session->localFeatures().enabled(Core::LocalFeature::CopyProtected);
 	}
 	return (_history && !_history->peer->allowsForwarding())
 		|| (_message && _message->forbidsSaving());
@@ -7834,6 +7836,13 @@ void OverlayWidget::setSession(not_null<Main::Session*> session) {
 	clearSession();
 	_session = session;
 	_window->setWindowIcon(Window::CreateIcon(session));
+	session->localFeatures().changes(
+	) | rpl::on_next([=] {
+		if (!isHidden()) {
+			refreshScreenshotProtection();
+			updateControls();
+		}
+	}, _sessionLifetime);
 
 	session->downloaderTaskFinished(
 	) | rpl::on_next([=] {

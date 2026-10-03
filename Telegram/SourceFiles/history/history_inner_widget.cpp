@@ -10,6 +10,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_polls.h"
 #include "chat_helpers/stickers_emoji_pack.h"
 #include "core/application.h"
+#include "core/local_features.h"
+#include "settings/sections/settings_local_features.h"
 #include "core/file_utilities.h"
 #include "core/click_handler_types.h"
 #include "core/phone_click_handler.h"
@@ -1081,7 +1083,8 @@ void HistoryInner::enumerateUserpics(Method method) {
 				lowestAttachedItemTop = itemtop + view->marginTop();
 			}
 			// Attach userpic to the bottom of the visible area with the same margin as the last message.
-			auto userpicMinBottomSkip = _historyMarginBottom + st::msgMargin.bottom();
+			auto userpicMinBottomSkip = _historyMarginBottom
+				- contentsMargins().bottom() + st::msgMargin.bottom();
 			auto userpicBottom = std::min(
 				itembottom - view->marginBottom(),
 				_visibleAreaBottom - userpicMinBottomSkip);
@@ -2975,6 +2978,11 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			return;
 		}
 		const auto itemId = item->fullId();
+		if (session->localFeatures().hasMessageRecord(itemId)) {
+			_menu->addAction(tr::lng_local_message_history(tr::now), [=] {
+				Settings::ShowLocalMessageHistory(controller, itemId);
+			}, &st::menuIconRestore);
+		}
 		const auto repliesCount = item->repliesCount();
 		const auto withReplies = (repliesCount > 0);
 		const auto topicRootId = item->history()->isForum()
@@ -3448,7 +3456,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			const auto blockSender = item->history()->peer->isRepliesChat();
 			if (isUponSelected != -2) {
 				if (item->allowsForward() && !IsAnchoredEphemeral(item)) {
-					_menu->addAction(tr::lng_context_forward_msg(tr::now), [=] {
+					_menu->addAction((item->requiresLocalCopy()
+						? tr::lng_local_send_copy(tr::now)
+						: tr::lng_context_forward_msg(tr::now)), [=] {
 						forwardItem(itemId);
 					}, &st::menuIconForward);
 				}
@@ -3763,7 +3773,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 				|| item->isEphemeral())) {
 			if (isUponSelected != -2) {
 				if (canForward) {
-					_menu->addAction(tr::lng_context_forward_msg(tr::now), [=] {
+					_menu->addAction((item->requiresLocalCopy()
+						? tr::lng_local_send_copy(tr::now)
+						: tr::lng_context_forward_msg(tr::now)), [=] {
 						forwardAsGroup(itemId);
 					}, &st::menuIconForward);
 				}
@@ -3831,6 +3843,13 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			_menu,
 			textItem ? textItem : _dragStateItem,
 			!added);
+	}
+	if (leaderOrSelf
+		&& leaderOrSelf->isRegular()
+		&& !_menu->empty()
+		&& isUponSelected != 2
+		&& isUponSelected != -2) {
+		Settings::AddLocalSenderActions(_menu, _controller, leaderOrSelf);
 	}
 	if (hasWhoReactedItem) {
 		HistoryView::AddWhoReactedAction(
@@ -4470,7 +4489,7 @@ void HistoryInner::recountHistoryGeometry(bool initial) {
 	const auto visibleHeight = _scroll->height();
 	auto oldHistoryMarginTop = std::max(
 		visibleHeight - historyHeight() - _historyMarginBottom,
-		0);
+		contentsMargins().top());
 	if (aboutAboveHistory) {
 		accumulate_max(oldHistoryMarginTop, _aboutView->height);
 	}
@@ -4536,7 +4555,7 @@ void HistoryInner::recountHistoryGeometry(bool initial) {
 
 	auto newHistoryMarginTop = std::max(
 		visibleHeight - historyHeight() - _historyMarginBottom,
-		0);
+		contentsMargins().top());
 	if (aboutAboveHistory) {
 		accumulate_max(newHistoryMarginTop, _aboutView->height);
 	}
@@ -4768,13 +4787,14 @@ void HistoryInner::updateSize() {
 	const auto itemsHeight = historyHeight() - _revealHeight + collapseGapTotal;
 	const auto aboutAboveHistory = _aboutView && _aboutView->aboveHistory();
 	const auto aboutBelowHistory = _aboutView && !aboutAboveHistory;
-	auto newHistoryMarginBottom = st::historyPaddingBottom;
+	auto newHistoryMarginBottom = st::historyPaddingBottom
+		+ contentsMargins().bottom();
 	if (aboutBelowHistory) {
 		accumulate_max(newHistoryMarginBottom, _aboutView->height);
 	}
 	auto newHistoryMarginTop = std::max(
 		visibleHeight - itemsHeight - newHistoryMarginBottom,
-		0);
+		contentsMargins().top());
 	if (aboutAboveHistory) {
 		accumulate_max(newHistoryMarginTop, _aboutView->height);
 	}

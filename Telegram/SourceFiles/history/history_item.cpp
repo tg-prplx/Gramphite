@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "history/history_item.h"
 
 #include "api/api_premium.h"
@@ -1226,6 +1228,7 @@ bool HistoryItem::notificationReady() const {
 }
 
 void HistoryItem::finishEdition(int oldKeyboardTop) {
+	history()->session().localFeatures().rememberMessage(this);
 	if (const auto group = _history->owner().groups().find(this)) {
 		for (const auto &item : group->items) {
 			_history->owner().requestItemViewRefresh(item);
@@ -1845,6 +1848,7 @@ TimeId HistoryItem::mediaDestroyAt() const {
 }
 
 void HistoryItem::markMediaAndMentionRead() {
+	_history->session().localFeatures().rememberExpiringMedia(this);
 	const auto wasUnreadMedia = isUnreadMedia();
 	_flags &= ~MessageFlag::MediaIsUnread;
 
@@ -2247,6 +2251,9 @@ bool HistoryItem::canLookupMessageAuthor() const {
 }
 
 bool HistoryItem::skipNotification() const {
+	if (_history->session().localFeatures().shadowBanned(from()->id) || _locallyDeleted) {
+		return true;
+	}
 	if (isSilent() && (_flags & MessageFlag::IsContactSignUp)) {
 		return true;
 	} else if (const auto forwarded = Get<HistoryMessageForwarded>()) {
@@ -2343,6 +2350,8 @@ void HistoryItem::clearMainView() {
 }
 
 void HistoryItem::applyEdition(HistoryMessageEdition &&edition) {
+	if (_locallyDeleted) { return; }
+	history()->session().localFeatures().rememberMessage(this);
 	history()->session().ephemeralMessages().revertAnchored(this);
 
 	int keyboardTop = -1;
@@ -2859,12 +2868,42 @@ void HistoryItem::contributeToSlowmode(TimeId realDate) {
 	}
 }
 
+void HistoryItem::markLocallyDeleted() {
+	_locallyDeleted = true;
+	applyTTL(0);
+}
+
+void HistoryItem::retainExpiredMediaLocally() {
+	const auto media = _media.get();
+	if (!media || !media->ttlSeconds()) {
+		return;
+	}
+	unarmMediaDestroy();
+	_flags &= ~MessageFlag::MediaIsUnread;
+	if (const auto photo = media->photo()) {
+		_media = std::make_unique<Data::MediaPhoto>(this, photo, Data::MediaPhoto::Args{
+			.spoiler = media->hasSpoiler(),
+		});
+	} else if (const auto document = media->document()) {
+		_media = std::make_unique<Data::MediaFile>(this, document, Data::MediaFile::Args{
+			.videoCover = media->videoCover(),
+			.videoTimestamp = media->videoTimestamp(),
+			.hasQualitiesList = media->hasQualitiesList(),
+			.spoiler = media->hasSpoiler(),
+		});
+	}
+	RemoveComponents(HistoryServiceSelfDestruct::Bit());
+}
+
 void HistoryItem::clearMediaAsExpired() {
 	const auto media = this->media();
 	if (!media || !media->ttlSeconds()) {
 		return;
 	}
 	unarmMediaDestroy();
+	if (_history->session().localFeatures().keepDeleted(this, true)) {
+		return;
+	}
 	auto &owner = _history->owner();
 	if (const auto document = media->document()) {
 		document->cancel();
@@ -3192,6 +3231,11 @@ bool HistoryItem::allowsForward() const {
 		&& (!_media || _media->allowsForward());
 }
 
+bool HistoryItem::requiresLocalCopy() const {
+	return (_flags & MessageFlag::NoForwards)
+		|| !history()->peer->allowsForwardingByServer();
+}
+
 bool HistoryItem::isTooOldForEdit(TimeId now) const {
 	return !_history->peer->canEditMessagesIndefinitely()
 		&& !isScheduled()
@@ -3258,14 +3302,15 @@ bool HistoryItem::canStopPoll() const {
 }
 
 bool HistoryItem::forbidsForward() const {
-	return (_flags & MessageFlag::NoForwards);
+	return (_flags & MessageFlag::NoForwards)
+		&& !_history->session().localFeatures().enabled(Core::LocalFeature::CopyProtected);
 }
 
 bool HistoryItem::forbidsSaving() const {
 	if (forbidsForward()) {
 		return true;
 	} else if (_media && _media->ttlSeconds()) {
-		return true;
+		return !_history->session().localFeatures().enabled(Core::LocalFeature::KeepExpired);
 	} else if (const auto invoice = _media ? _media->invoice() : nullptr) {
 		return HasExtendedMedia(*invoice);
 	}
@@ -4245,7 +4290,9 @@ void HistoryItem::applyTTL(TimeId destroyAt) {
 		const auto session = &_history->session();
 		crl::on_main(session, [session, id = fullId()]{
 			if (const auto item = session->data().message(id)) {
-				session->data().destroyMessageWithCacheCleanup(item);
+				if (!session->localFeatures().keepDeleted(item, true)) {
+					session->data().destroyMessageWithCacheCleanup(item);
+				}
 			}
 		});
 	} else {

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.25)
+project(local_features_tests LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+add_executable(local_features_tests journal_test.cpp profile_export_test.cpp message_index_test.cpp)
+target_link_libraries(local_features_tests PRIVATE Qt6::Core)

@@ -8776,3 +8776,116 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_folder_archive_status" = "ZIP archive";
 
 // Keys finished
+
+"lng_local_features" = "Ghost mode & local tools";
+"lng_local_cover_about" = "Privacy and history tools that work only in this app. Everything they record stays on this device, encrypted per account.";
+
+"lng_local_ghost" = "Ghost mode";
+"lng_local_ghost_messages" = "Hide read receipts";
+"lng_local_ghost_stories" = "Hide story views";
+"lng_local_ghost_online" = "Hide online status";
+"lng_local_ghost_about" = "Applies to this account in this app. Hiding online status also hides typing and upload indicators. Sending a message or using another device can still reveal your activity.";
+"lng_local_ghost_on_toast" = "Ghost mode is on";
+"lng_local_ghost_off_toast" = "Ghost mode is off";
+
+"lng_local_archive" = "Message archive";
+"lng_local_edit_history" = "Keep edit history";
+"lng_local_keep_deleted" = "Keep deleted messages";
+"lng_local_keep_expired" = "Keep self-destructing media";
+"lng_local_copy_protected" = "Unlock protected content";
+"lng_local_archive_open" = "Edited and deleted messages";
+"lng_local_archive_about" = "Only what arrives while enabled is saved: up to 100,000 messages with 100 versions each, media up to 64 MB per file and 4 GB in total. Protected content can be saved, screenshotted and sent as a copy.";
+"lng_local_message_history" = "Message history";
+"lng_local_messages_search" = "Search chats and text";
+"lng_local_badge_deleted" = "deleted";
+"lng_local_badge_expired" = "self-destructed";
+"lng_local_badge_edited#one" = "{count} edit";
+"lng_local_badge_edited#other" = "{count} edits";
+"lng_local_version_original" = "Original";
+"lng_local_version_edit" = "Edit {number}";
+"lng_local_version_current" = "Latest";
+"lng_local_save_media" = "Save attachment";
+"lng_local_media_missing" = "This file was not received or has left the archive size limit.";
+
+"lng_local_profiles" = "Profiles & activity";
+"lng_local_track_profiles" = "Track profile changes";
+"lng_local_track_online" = "Track online sessions";
+"lng_local_block_hint" = "Detect possible blocks";
+"lng_local_registration" = "Estimate registration date";
+"lng_local_profiles_about" = "Names, usernames, photos, bio, phone, Premium, emoji status and birthday are logged from updates Telegram sends to this app, with no background polling. Up to 6,000 profiles, 500 changes and 2,000 online sessions per profile.";
+"lng_local_tracked_profiles" = "Tracked profiles";
+"lng_local_watch_list" = "Online alerts";
+"lng_local_shadow_bans" = "Hidden people";
+"lng_local_clear_profiles" = "Clear tracking data";
+"lng_local_clear_profiles_sure" = "Delete all saved profile changes, online sessions, saved photos and online alerts for this account?";
+"lng_local_clear" = "Clear";
+
+"lng_local_insights" = "Profile insights";
+"lng_local_insights_short" = "Insights";
+"lng_local_registered" = "Registered ≈ {date}";
+"lng_local_possible_block" = "Possibly blocked you: the photo disappeared and last seen changed to “a long time ago”. Privacy settings or an inactive account can look the same.";
+"lng_local_watch_online" = "Notify when online";
+"lng_local_watch_online_toast" = "{user} is online";
+"lng_local_hide_person" = "Hide locally";
+"lng_local_unhide_person" = "Unhide";
+"lng_local_hidden_toast" = "{user} is hidden in this app";
+"lng_local_unhidden_toast" = "{user} is visible again";
+"lng_local_profile_export" = "Export to JSON";
+"lng_local_export_done" = "Profile history saved.";
+"lng_local_export_failed" = "Could not save profile history.";
+"lng_local_id_copied" = "ID copied to clipboard.";
+
+"lng_local_online_now" = "online now";
+"lng_local_online_since" = "online since {time}";
+"lng_local_last_online" = "seen online {time}";
+"lng_local_stat_week" = "Last 7 days";
+"lng_local_stat_month" = "Last 30 days";
+"lng_local_stat_sessions" = "Sessions";
+"lng_local_activity_hours" = "Activity by hour · 30 days";
+"lng_local_sessions_title" = "Online sessions";
+"lng_local_sessions_all" = "All sessions";
+"lng_local_changes" = "Changes";
+"lng_local_show_more#one" = "Show {count} more";
+"lng_local_show_more#other" = "Show {count} more";
+"lng_local_profile_waiting" = "Nothing recorded yet. Changes and online sessions appear here as Telegram sends updates about this person.";
+"lng_local_profile_disabled" = "Profile and online tracking is off. Turn it on in Settings › Ghost mode & local tools.";
+
+"lng_local_field_name" = "Name";
+"lng_local_field_username" = "Username";
+"lng_local_field_bio" = "Bio";
+"lng_local_field_photo" = "Profile photos";
+"lng_local_field_phone" = "Phone number";
+"lng_local_field_premium" = "Telegram Premium";
+"lng_local_field_emoji_status" = "Emoji status";
+"lng_local_field_birthday" = "Birthday";
+"lng_local_field_last_seen" = "Last seen visibility";
+"lng_local_value_yes" = "yes";
+"lng_local_value_no" = "no";
+"lng_local_value_visible" = "visible";
+"lng_local_value_hidden" = "hidden";
+"lng_local_value_empty" = "empty";
+"lng_local_was" = "was: {value}";
+"lng_local_photo_added" = "Photo added";
+"lng_local_photo_changed" = "Photo changed";
+"lng_local_photo_removed" = "Photo removed";
+"lng_local_status_set" = "Status set";
+"lng_local_status_changed" = "Status changed";
+"lng_local_status_removed" = "Status removed";
+
+"lng_local_profile_search" = "Search name, username or ID";
+"lng_local_filter_all" = "All";
+"lng_local_filter_changed" = "With changes";
+"lng_local_filter_watched" = "Online alerts";
+"lng_local_profile_changes#one" = "{count} change";
+"lng_local_profile_changes#other" = "{count} changes";
+"lng_local_profile_sessions#one" = "{count} session";
+"lng_local_profile_sessions#other" = "{count} sessions";
+"lng_local_shadow_about" = "Nobody is hidden. Choose “Hide locally” in a chat or message menu: that person's messages and notifications disappear in this app only.";
+"lng_local_watch_list_empty" = "Nobody yet. Turn on “Notify when online” in someone's profile insights.";
+"lng_local_nothing_found" = "Nothing found.";
+"lng_local_empty" = "No records yet. Turn logging on first: earlier data can't be fetched retroactively.";
+"lng_local_more" = "Show more";
+
+"lng_local_deleted" = "удалено";
+"lng_local_send_copy" = "Send a Copy";
+"lng_local_copy_failed" = "Could not prepare the message copy. Download its attachment and try again. Photos, videos, audio and files are supported.";

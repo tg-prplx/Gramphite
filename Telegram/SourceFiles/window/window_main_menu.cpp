@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "calls/calls_instance.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
+#include "core/local_features.h"
 #include "data/data_changes.h"
 #include "data/data_document_media.h"
 #include "data/data_folder.h"
@@ -786,6 +787,26 @@ void MainMenu::setupMenu() {
 			_nightThemeSwitches.fire_copy(*darkMode);
 		}
 	}, _nightThemeToggle->lifetime());
+
+	const auto features = &controller->session().localFeatures();
+	addAction(
+		tr::lng_local_ghost(),
+		{ &st::menuIconStealth }
+	)->toggleOn(rpl::single(
+		rpl::empty
+	) | rpl::then(
+		features->changes()
+	) | rpl::map([=] {
+		return features->ghostMode();
+	}))->toggledChanges(
+	) | rpl::filter([=](bool enabled) {
+		return (enabled != features->ghostMode());
+	}) | rpl::on_next([=](bool enabled) {
+		features->setGhostMode(enabled);
+		controller->showToast(enabled
+			? tr::lng_local_ghost_on_toast(tr::now)
+			: tr::lng_local_ghost_off_toast(tr::now));
+	}, _menu->lifetime());
 }
 
 void MainMenu::resizeEvent(QResizeEvent *e) {

@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "apiwrap.h"
 
 #include "api/api_authorizations.h"
@@ -18,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_hash.h"
 #include "api/api_invite_links.h"
 #include "api/api_media.h"
+#include "api/api_message_copy.h"
 #include "api/api_peer_colors.h"
 #include "api/api_peer_photo.h"
 #include "api/api_polls.h"
@@ -1451,6 +1454,9 @@ void ApiWrap::markContentsRead(
 			markedIds.push_back(MTP_int(item->id));
 		}
 	}
+	if (_session->localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+		return;
+	}
 	if (!markedIds.isEmpty()) {
 		request(MTPmessages_ReadMessageContents(
 			MTP_vector<MTPint>(markedIds)
@@ -1468,6 +1474,9 @@ void ApiWrap::markContentsRead(
 
 void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
 	if (!item->markContentsRead(true) || !item->isRegular()) {
+		return;
+	}
+	if (_session->localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
 		return;
 	}
 	const auto ids = MTP_vector<MTPint>(1, MTP_int(item->id));
@@ -3826,6 +3835,14 @@ void ApiWrap::forwardMessages(
 		SendAction action,
 		FnMut<void()> &&successCallback) {
 	Expects(!draft.items.empty());
+	if (_session->localFeatures().enabled(Core::LocalFeature::CopyProtected)
+		&& ranges::any_of(draft.items, &HistoryItem::requiresLocalCopy)) {
+		Api::SendMessageCopies(
+			std::move(draft),
+			action,
+			std::move(successCallback));
+		return;
+	}
 
 	auto &histories = _session->data().histories();
 
@@ -4187,8 +4204,8 @@ void ApiWrap::sendVoiceMessage(
 		VoiceWaveform waveform,
 		crl::time duration,
 		bool video,
-		const SendAction &action) {
-	const auto caption = TextWithTags();
+		const SendAction &action,
+		TextWithTags caption) {
 	const auto to = FileLoadTaskOptions(action);
 	_fileLoader->addTask(
 		std::make_unique<FileLoadTask>(FileLoadTask::VoiceArgs{
@@ -4198,7 +4215,7 @@ void ApiWrap::sendVoiceMessage(
 			.waveform = waveform,
 			.video = video,
 			.to = to,
-			.caption = caption,
+			.caption = std::move(caption),
 		}));
 }
 

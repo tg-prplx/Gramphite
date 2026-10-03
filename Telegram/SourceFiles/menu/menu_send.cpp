@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "menu/menu_send.h"
 
 #include "menu/menu_checked_action.h"
@@ -973,6 +975,11 @@ void SetupUnreadMentionsMenu(
 		const auto peer = thread->peer();
 		const auto topic = thread->asTopic();
 		const auto rootId = topic ? topic->rootId() : 0;
+		if (peer->session().localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+			peer->owner().history(peer)->clearUnreadMentionsFor(rootId);
+			done();
+			return;
+		}
 		using Flag = MTPmessages_ReadMentions::Flag;
 		peer->session().api().request(MTPmessages_ReadMentions(
 			MTP_flags(rootId ? Flag::f_top_msg_id : Flag()),
@@ -1015,6 +1022,11 @@ void SetupUnreadReactionsMenu(
 		const auto sublist = thread->asSublist();
 		const auto peer = thread->peer();
 		const auto rootId = topic ? topic->rootId() : 0;
+		if (peer->session().localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+			peer->owner().history(peer)->clearUnreadReactionsFor(rootId, sublist);
+			done();
+			return;
+		}
 		using Flag = MTPmessages_ReadReactions::Flag;
 		peer->session().api().request(MTPmessages_ReadReactions(
 			MTP_flags((rootId ? Flag::f_top_msg_id : Flag(0))
@@ -1060,6 +1072,11 @@ void SetupUnreadPollVotesMenu(
 		const auto topic = thread->asTopic();
 		const auto peer = thread->peer();
 		const auto rootId = topic ? topic->rootId() : 0;
+		if (peer->session().localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+			peer->owner().history(peer)->clearUnreadPollVotesFor(rootId);
+			done();
+			return;
+		}
 		using Flag = MTPmessages_ReadPollVotes::Flag;
 		peer->session().api().request(MTPmessages_ReadPollVotes(
 			MTP_flags(rootId ? Flag::f_top_msg_id : Flag(0)),

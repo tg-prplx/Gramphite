@@ -186,6 +186,8 @@ PRIVATE
     api/api_send_progress.h
     api/api_sending.cpp
     api/api_sending.h
+    api/api_message_copy.cpp
+    api/api_message_copy.h
     api/api_sensitive_content.cpp
     api/api_sensitive_content.h
     api/api_single_message_search.cpp
@@ -559,6 +561,11 @@ PRIVATE
     core/core_cloud_password.h
     core/core_screenshot_protection.cpp
     core/core_screenshot_protection.h
+    core/local_feature_journal.h
+    core/local_features.cpp
+    core/local_features.h
+    core/local_message_index.h
+    core/local_profile_export.h
     core/core_settings.cpp
     core/core_settings.h
     core/core_settings_proxy.cpp
@@ -1835,6 +1842,8 @@ PRIVATE
     settings/cloud_password/settings_cloud_password_validate_icon.h
     settings/sections/settings_active_sessions.cpp
     settings/sections/settings_active_sessions.h
+    settings/sections/settings_local_features.cpp
+    settings/sections/settings_local_features.h
     settings/sections/settings_advanced.cpp
     settings/sections/settings_advanced.h
     settings/sections/settings_chat.cpp

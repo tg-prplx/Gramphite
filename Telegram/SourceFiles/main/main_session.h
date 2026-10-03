@@ -84,6 +84,10 @@ namespace Ui {
 struct ColorIndicesCompressed;
 } // namespace Ui
 
+namespace Core {
+class LocalFeatures;
+} // namespace Core
+
 namespace Main {
 
 class Account;
@@ -140,6 +144,10 @@ public:
 		return _user;
 	}
 	bool validateSelf(UserId id);
+
+	[[nodiscard]] Core::LocalFeatures &localFeatures() const {
+		return *_localFeatures;
+	}
 
 	[[nodiscard]] Data::Changes &changes() const {
 		return *_changes;
@@ -319,6 +327,7 @@ private:
 
 	// _data depends on _downloader / _uploader.
 	const std::unique_ptr<Data::Session> _data;
+	std::unique_ptr<Core::LocalFeatures> _localFeatures;
 	const not_null<UserData*> _user;
 
 	// _emojiStickersPack depends on _data.

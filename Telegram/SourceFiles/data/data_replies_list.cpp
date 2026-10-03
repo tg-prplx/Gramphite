@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "data/data_replies_list.h"
 
 #include "history/history.h"
@@ -1005,6 +1007,9 @@ void RepliesList::sendReadTillRequest() {
 	const auto api = &_history->session().api();
 	api->request(base::take(_readRequestId)).cancel();
 
+	if (_history->session().localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+		return;
+	}
 	_readRequestId = api->request(MTPmessages_ReadDiscussion(
 		_history->peer->input(),
 		MTP_int(_rootId),

@@ -5,6 +5,9 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+#include "settings/sections/settings_local_features.h"
+
 #include "history/view/history_view_context_menu.h"
 
 #include "api/api_attached_stickers.h"
@@ -236,7 +239,7 @@ void RevertAction::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), _height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), _height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), _height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}
@@ -278,7 +281,7 @@ QPoint RevertAction::prepareRippleStartPosition() const {
 }
 
 QImage RevertAction::prepareRippleMask() const {
-	return Ui::RippleAnimation::RectMask(size());
+	return Ui::Menu::PrepareItemRippleMask(size());
 }
 
 int RevertAction::contentHeight() const {
@@ -609,7 +612,9 @@ bool AddForwardMessageAction(
 		}
 	}
 	const auto itemId = item->fullId();
-	menu->addAction(tr::lng_context_forward_msg(tr::now), [=] {
+	menu->addAction((item->requiresLocalCopy()
+		? tr::lng_local_send_copy(tr::now)
+		: tr::lng_context_forward_msg(tr::now)), [=] {
 		if (const auto item = owner->message(itemId)) {
 			Window::ShowForwardMessagesBox(
 				request.navigation,
@@ -1980,6 +1985,15 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
 
 	// Build the full message menu.
 	FillContextMenuItems(result, list, request, hasPollOption);
+	if (item && item->isRegular()) {
+		const auto controller = list->controller();
+		if (item->history()->session().localFeatures().hasMessageRecord(itemId)) {
+			result->addAction(tr::lng_local_message_history(tr::now), [=] {
+				Settings::ShowLocalMessageHistory(controller, itemId);
+			}, &st::menuIconRestore);
+		}
+		Settings::AddLocalSenderActions(result.get(), controller, item);
+	}
 
 	if (item) {
 		const auto media = item->media();

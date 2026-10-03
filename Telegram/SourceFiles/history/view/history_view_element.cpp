@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "history/view/history_view_element.h"
 
 #include "apiwrap.h"
@@ -1537,7 +1539,8 @@ bool Element::isHiddenByGroup() const {
 }
 
 bool Element::isHidden() const {
-	return isHiddenByGroup();
+	return isHiddenByGroup()
+		|| history()->session().localFeatures().shadowBanned(data()->from()->id);
 }
 
 void Element::overrideMedia(std::unique_ptr<Media> media) {

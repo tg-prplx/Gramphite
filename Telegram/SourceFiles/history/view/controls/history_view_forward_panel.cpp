@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/controls/history_view_forward_panel.h"
 
+#include "core/local_features.h"
+
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/history_item_helpers.h"
@@ -515,6 +517,12 @@ Data::ForwardOptions NormalizeForwardOptions(
 		not_null<Main::Session*> session,
 		const HistoryItemsList &list,
 		Data::ForwardOptions options) {
+	if (session->localFeatures().enabled(Core::LocalFeature::CopyProtected)
+		&& ranges::any_of(list, &HistoryItem::requiresLocalCopy)) {
+		return (options == Data::ForwardOptions::NoNamesAndCaptions)
+			? options
+			: Data::ForwardOptions::NoSenderNames;
+	}
 	return CanHideForwardAuthor(session, list)
 		? options
 		: Data::ForwardOptions::PreserveInfo;

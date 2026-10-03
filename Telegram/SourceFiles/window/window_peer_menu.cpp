@@ -5,6 +5,9 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+#include "settings/sections/settings_local_features.h"
+
 #include "window/window_peer_menu.h"
 
 #include "base/call_delayed.h"
@@ -323,6 +326,9 @@ private:
 	void addThemeEdit();
 	void addToggleNoForwards();
 	void addBlockUser();
+	void addLocalInsights();
+	void addLocalArchive();
+	void addLocalHide();
 	void addBanFromChannel();
 	void addViewDiscussion();
 	void addDirectMessages();
@@ -970,6 +976,44 @@ void Filler::addBlockUser() {
 	if (user->blockStatus() == UserData::BlockStatus::Unknown) {
 		user->session().api().requestFullPeer(user);
 	}
+}
+
+void Filler::addLocalInsights() {
+	if (!_controller || !Settings::HasLocalInsights(_peer)) {
+		return;
+	}
+	const auto controller = _controller;
+	const auto id = _peer->id;
+	_addAction(tr::lng_local_insights(tr::now), [=] {
+		Settings::ShowLocalProfileInsights(controller, id);
+	}, &st::menuIconStats);
+}
+
+void Filler::addLocalArchive() {
+	if (!_controller
+		|| _topic
+		|| !_peer->session().localFeatures().messageCount(_peer->id)) {
+		return;
+	}
+	const auto controller = _controller;
+	const auto id = _peer->id;
+	_addAction(tr::lng_local_archive_open(tr::now), [=] {
+		Settings::ShowLocalMessagesArchive(controller, id);
+	}, &st::menuIconRestore);
+}
+
+void Filler::addLocalHide() {
+	if (!_controller || !Settings::HasLocalInsights(_peer)) {
+		return;
+	}
+	const auto controller = _controller;
+	const auto id = _peer->id;
+	const auto hidden = _peer->session().localFeatures().shadowBanned(id);
+	_addAction(hidden
+		? tr::lng_local_unhide_person(tr::now)
+		: tr::lng_local_hide_person(tr::now), [=] {
+		Settings::ToggleLocalHidden(controller, id);
+	}, hidden ? &st::menuIconUnblock : &st::menuIconBlock);
 }
 
 void Filler::addBanFromChannel() {
@@ -1903,6 +1947,7 @@ void Filler::fillContextMenuActions() {
 	if (ViewProfileInChatsListContextMenu.value()) {
 		addInfo();
 	}
+	addLocalInsights();
 	addToggleMuteSubmenu(false);
 	addToggleUnreadMark();
 	addToggleTopicClosed();
@@ -1923,6 +1968,8 @@ void Filler::fillHistoryActions() {
 	addToggleMuteSubmenu(true);
 	addCreateTopic();
 	addInfo();
+	addLocalInsights();
+	addLocalArchive();
 	addViewAsTopics();
 	addManageChat();
 	addStoryArchive();
@@ -1936,6 +1983,7 @@ void Filler::fillHistoryActions() {
 	addDirectMessages();
 	addExportChat();
 	addTranslate();
+	addLocalHide();
 	addReport();
 	addClearHistory();
 	addDeleteChat();
@@ -1945,6 +1993,7 @@ void Filler::fillHistoryActions() {
 void Filler::fillProfileActions() {
 	addTTLSubmenu(true);
 	addSupportInfo();
+	addLocalInsights();
 	addNewContact();
 	addShareContact();
 	addEditContact();
@@ -1963,6 +2012,7 @@ void Filler::fillProfileActions() {
 	addExportChat();
 	addToggleNoForwards();
 	addToggleFolder();
+	addLocalHide();
 	addBlockUser();
 	addBanFromChannel();
 	addReport();

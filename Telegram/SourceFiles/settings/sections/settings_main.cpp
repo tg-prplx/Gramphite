@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_builder.h"
 #include "settings/cloud_password/settings_cloud_password_input.h"
 #include "settings/sections/settings_advanced.h"
+#include "settings/sections/settings_local_features.h"
 #include "settings/sections/settings_business.h"
 #include "settings/sections/settings_calls.h"
 #include "settings/sections/settings_chat.h"
@@ -428,6 +429,13 @@ void BuildSectionButtons(SectionBuilder &builder) {
 			.shown = std::move(shownProducer),
 		});
 	}
+
+	builder.addSectionButton({
+		.title = tr::lng_local_features(),
+		.targetSection = LocalFeaturesId(),
+		.icon = { &st::menuIconStealth },
+		.keywords = { u"ghost"_q, u"history"_q, u"local"_q },
+	});
 
 	builder.addSectionButton({
 		.title = tr::lng_settings_advanced(),

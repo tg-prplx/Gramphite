@@ -397,6 +397,9 @@ public:
 
 	[[nodiscard]] bool isService() const;
 	void applyEdition(HistoryMessageEdition &&edition);
+	[[nodiscard]] bool locallyDeleted() const { return _locallyDeleted; }
+	void markLocallyDeleted();
+	void retainExpiredMediaLocally();
 	void applyChanges(not_null<Data::Story*> story);
 
 	void applyEdition(const MTPDmessageService &message);
@@ -487,6 +490,7 @@ public:
 	[[nodiscard]] bool allowsSendNow() const;
 	[[nodiscard]] bool allowsReschedule() const;
 	[[nodiscard]] bool allowsForward() const;
+	[[nodiscard]] bool requiresLocalCopy() const;
 	[[nodiscard]] bool allowsMediaDownloadControls() const;
 	[[nodiscard]] bool allowsEdit(TimeId now) const;
 	[[nodiscard]] bool allowsEditMedia() const;
@@ -820,6 +824,7 @@ private:
 
 	TimeId _date = 0;
 	TimeId _ttlDestroyAt = 0;
+	bool _locallyDeleted = false;
 	int _boostsApplied = 0;
 	int _starsPaid = 0;
 	BusinessShortcutId _shortcutId = 0;

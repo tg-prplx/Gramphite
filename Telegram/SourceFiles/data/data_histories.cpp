@@ -5,6 +5,8 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/local_features.h"
+
 #include "data/data_histories.h"
 
 #include "api/api_text_entities.h"
@@ -718,6 +720,11 @@ void Histories::sendReadRequest(not_null<History*> history, State &state) {
 	const auto tillId = state.sentReadTill = base::take(state.willReadTill);
 	state.willReadWhen = 0;
 	state.sentReadDone = false;
+	if (session().localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+		state.sentReadDone = true;
+		history->validateMonoAndForumUnread(tillId);
+		return;
+	}
 	DEBUG_LOG(("Reading: sending request now with till %1."
 		).arg(tillId.bare));
 	sendRequest(history, RequestType::ReadInbox, [=](Fn<void()> finish) {
@@ -741,6 +748,10 @@ void Histories::sendReadRequest(not_null<History*> history, State &state) {
 			sendReadRequests();
 			finish();
 		};
+		if (session().localFeatures().enabled(Core::LocalFeature::GhostMessages)) {
+			finished();
+			return mtpRequestId(0);
+		}
 		if (const auto channel = history->peer->asChannel()) {
 			return session().api().request(MTPchannels_ReadHistory(
 				channel->inputChannel(),

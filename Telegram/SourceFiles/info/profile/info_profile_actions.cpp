@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/info_profile_text.h"
 #include "info/profile/info_profile_values.h"
 #include "info/profile/info_profile_widget.h"
+#include "settings/sections/settings_local_features.h"
 #include "info/info_controller.h"
 #include "info/info_memento.h"
 #include "inline_bots/bot_attach_web_view.h"
@@ -112,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h" // settingsButtonRightSkip.
+#include "styles/style_settings_local_features.h"
 #include "styles/style_window.h" // mainMenuToggleFourStrokes.
 
 #include <QtGui/QGuiApplication>
@@ -1303,6 +1305,7 @@ private:
 	void addFastButtonsMode(not_null<UserData*> user);
 	void addReportAction();
 	void addBlockAction(not_null<UserData*> user);
+	void addLocalInsightsAction(not_null<UserData*> user);
 	void addLeaveChannelAction(not_null<ChannelData*> channel);
 	void addJoinChannelAction(not_null<ChannelData*> channel);
 	void fillUserActions(not_null<UserData*> user);
@@ -3175,6 +3178,20 @@ void ActionsFiller::addJoinChannelAction(
 	);
 }
 
+void ActionsFiller::addLocalInsightsAction(not_null<UserData*> user) {
+	if (!::Settings::HasLocalInsights(user)) {
+		return;
+	}
+	const auto controller = _controller->parentController();
+	const auto id = user->id;
+	AddActionButton(
+		_wrap,
+		tr::lng_local_insights(),
+		rpl::single(true),
+		[=] { ::Settings::ShowLocalProfileInsights(controller, id); },
+		&st::localInfoIcon);
+}
+
 void ActionsFiller::fillUserActions(not_null<UserData*> user) {
 	if (user->isBot()) {
 		addAffiliateProgram(user);
@@ -3185,6 +3202,7 @@ void ActionsFiller::fillUserActions(not_null<UserData*> user) {
 	if (!user->isSelf()) {
 		addEditContactAction(user);
 		addDeleteContactAction(user);
+		addLocalInsightsAction(user);
 	}
 	if (CanReportBot(user)) {
 		addBotCommandActions(user);

@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "storage/storage_account.h"
+#include <crl/crl_queue.h>
+#include <QtCore/QJsonDocument>
 
 #include "storage/localstorage.h"
 #include "storage/storage_domain.h"
@@ -47,6 +49,24 @@ namespace {
 
 using namespace details;
 using Database = Cache::Database;
+
+// Local feature data belongs to the Telegram user, not to the account
+// slot: it must survive logging out and logging back in, possibly into
+// a different slot. The domain local key used here stays the same.
+[[nodiscard]] QString LocalFeaturesPath(
+		uint64 userId,
+		const QString &basePath) {
+	return userId
+		? (cWorkingDir()
+			+ u"tdata/gramphite/"_q
+			+ QString::number(userId)
+			+ '/')
+		: (basePath + u"local_features/"_q);
+}
+
+[[nodiscard]] QString LegacyLocalFeaturesPath(const QString &basePath) {
+	return basePath + u"local_features/"_q;
+}
 
 constexpr auto kDelayedWriteTimeout = crl::time(1000);
 constexpr auto kWriteSearchSuggestionsDelay = 5 * crl::time(1000);
@@ -180,6 +200,7 @@ Account::Account(not_null<Main::Account*> owner, const QString &dataName)
 , _cacheBigFileTotalSizeLimit(Database::Settings().totalSizeLimit)
 , _cacheTotalTimeLimit(Database::Settings().totalTimeLimit)
 , _cacheBigFileTotalTimeLimit(Database::Settings().totalTimeLimit)
+, _localFeaturesQueue(std::make_unique<crl::queue>())
 , _writeMapTimer([=] { writeMap(); })
 , _writePrefsTimer([=] { writePrefs(); })
 , _writeLocationsTimer([=] { writeLocations(); })
@@ -187,6 +208,7 @@ Account::Account(not_null<Main::Account*> owner, const QString &dataName)
 }
 
 Account::~Account() {
+	_localFeaturesQueue->sync([] {});
 	Expects(!_writeSearchSuggestionsTimer.isActive());
 
 	if (_localKey) {
@@ -764,6 +786,7 @@ void Account::writeMap() {
 }
 
 void Account::reset() {
+	_localFeaturesQueue->sync([] {});
 	_writeSearchSuggestionsTimer.cancel();
 
 	auto names = collectGoodNames();
@@ -824,6 +847,7 @@ void Account::reset() {
 		wvbots,
 		wvother
 	] {
+		QDir(base + u"local_features"_q).removeRecursively();
 		for (const auto &name : names) {
 			if (!name.endsWith(u"map0"_q)
 				&& !name.endsWith(u"map1"_q)
@@ -1195,6 +1219,71 @@ void Account::writeMtpConfig() {
 	EncryptedDescriptor data(size);
 	data.stream << serialized;
 	file.writeEncrypted(data, _localKey);
+}
+
+void Account::setLocalFeaturesUser(uint64 userId) {
+	_localFeaturesUser = userId;
+}
+
+QByteArray Account::readLocalFeatureFile(const QString &key) const {
+	auto bytes = QByteArray();
+	const auto name = u"localfeatures_"_q + key;
+	const auto read = [&](const QString &path) {
+		FileReadDescriptor file;
+		if (_localKey && ReadEncryptedFile(file, name, path, _localKey)) {
+			file.stream >> bytes;
+			if (!CheckStreamStatus(file.stream)) {
+				bytes.clear();
+			}
+		}
+		return !bytes.isEmpty();
+	};
+	_localFeaturesQueue->sync([&] {
+		// Data written before it moved out of the account folder.
+		if (!read(LocalFeaturesPath(_localFeaturesUser, _basePath))) {
+			read(LegacyLocalFeaturesPath(_basePath));
+		}
+	});
+	return bytes;
+}
+
+void Account::writeLocalFeatureFile(const QString &key, const QByteArray &bytes, bool media) {
+	if (!_localKey) { return; }
+	_localFeaturesQueue->async([name = u"localfeatures_"_q + key, path = LocalFeaturesPath(_localFeaturesUser, _basePath),
+			localKey = _localKey, bytes] {
+		QDir().mkpath(path);
+		FileWriteDescriptor file(name, path);
+		EncryptedDescriptor data(Serialize::bytearraySize(bytes));
+		data.stream << bytes;
+		file.writeEncrypted(data, localKey);
+	});
+}
+
+void Account::writeLocalFeatureJournal(QJsonObject state) {
+	if (!_localKey) { return; }
+	_localFeaturesQueue->async([path = LocalFeaturesPath(_localFeaturesUser, _basePath), localKey = _localKey, state = std::move(state)] {
+		const auto bytes = QJsonDocument(state).toJson(QJsonDocument::Compact);
+		QDir().mkpath(path);
+		FileWriteDescriptor file(u"localfeatures_journal"_q, path);
+		EncryptedDescriptor data(Serialize::bytearraySize(bytes));
+		data.stream << bytes;
+		file.writeEncrypted(data, localKey);
+	});
+}
+
+QString Account::localFeaturesArchivePath() const {
+	return LocalFeaturesPath(_localFeaturesUser, _basePath) + u"archive/"_q;
+}
+
+void Account::removeLocalFeatureFile(const QString &key) {
+	_localFeaturesQueue->async([
+			name = LocalFeaturesPath(_localFeaturesUser, _basePath) + u"localfeatures_"_q + key,
+			legacy = LegacyLocalFeaturesPath(_basePath) + u"localfeatures_"_q + key] {
+		for (const auto suffix : { '0', '1', 's' }) {
+			QFile::remove(name + suffix);
+			QFile::remove(legacy + suffix);
+		}
+	});
 }
 
 std::unique_ptr<MTP::Config> Account::readMtpConfig() {

@@ -73,6 +73,7 @@ set(style_files
     profile/profile.style
     settings/settings.style
     settings/sections/settings_local_storage.style
+    settings/sections/settings_local_features.style
     settings/sections/settings_active_sessions.style
     settings/sections/settings_premium.style
     ui/controls/filter_link_header.style

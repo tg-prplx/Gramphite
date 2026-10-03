@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_peer_values.h"
 
+#include "core/local_features.h"
+
 #include "lang/lang_keys.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
@@ -379,25 +381,38 @@ rpl::producer<bool> CanPinMessagesValue(not_null<PeerData*> peer) {
 }
 
 rpl::producer<bool> AllowsForwardingValue(not_null<PeerData*> peer) {
-	if (const auto user = peer->asUser()) {
-		return rpl::combine(
-			PeerFlagValue(user, UserDataFlag::NoForwardsMyEnabled),
-			PeerFlagValue(user, UserDataFlag::NoForwardsPeerEnabled)
-		) | rpl::map([](bool my, bool peer) {
-			return !my && !peer;
-		});
-	} else if (const auto chat = peer->asChat()) {
-		return PeerFlagValue(
-			chat,
-			ChatDataFlag::NoForwards
-		) | rpl::map(!rpl::mappers::_1);
-	} else if (const auto channel = peer->asChannel()) {
-		return PeerFlagValue(
-			channel,
-			ChannelDataFlag::NoForwards
-		) | rpl::map(!rpl::mappers::_1);
-	}
-	return rpl::single(true);
+	const auto server = [=]() -> rpl::producer<bool> {
+		if (const auto user = peer->asUser()) {
+			return rpl::combine(
+				PeerFlagValue(user, UserDataFlag::NoForwardsMyEnabled),
+				PeerFlagValue(user, UserDataFlag::NoForwardsPeerEnabled)
+			) | rpl::map([](bool my, bool peer) {
+				return !my && !peer;
+			});
+		} else if (const auto chat = peer->asChat()) {
+			return PeerFlagValue(
+				chat,
+				ChatDataFlag::NoForwards
+			) | rpl::map(!rpl::mappers::_1);
+		} else if (const auto channel = peer->asChannel()) {
+			return PeerFlagValue(
+				channel,
+				ChannelDataFlag::NoForwards
+			) | rpl::map(!rpl::mappers::_1);
+		}
+		return rpl::single(true);
+	};
+	const auto local = [=] {
+		return peer->session().localFeatures().enabled(
+			Core::LocalFeature::CopyProtected);
+	};
+	return rpl::combine(
+		server(),
+		rpl::single(local()) | rpl::then(
+			peer->session().localFeatures().changes() | rpl::map(local))
+	) | rpl::map([](bool allowed, bool local) {
+		return allowed || local;
+	}) | rpl::distinct_until_changed();
 }
 
 rpl::producer<bool> CanManageGroupCallValue(not_null<PeerData*> peer) {
@@ -464,7 +479,10 @@ crl::time OnlineChangeTimeout(not_null<UserData*> user, TimeId now) {
 	if (user->isServiceUser() || user->isBot()) {
 		return kMaxOnlineChangeTimeout;
 	}
-	return OnlineChangeTimeout(user->lastseen(), now);
+	const auto status = user->lastseen();
+	const auto observed = user->session().localFeatures().lastObservedOnline(user->id);
+	return OnlineChangeTimeout(status.isHidden() && !status.isOnline(now) && observed
+		? LastseenStatus::OnlineTill(std::min(observed, now)) : status, now);
 }
 
 QString OnlineText(Data::LastseenStatus status, TimeId now) {
@@ -501,10 +519,20 @@ QString OnlineText(not_null<UserData*> user, TimeId now) {
 	if (const auto special = OnlineTextSpecial(user)) {
 		return *special;
 	}
+	if (user->lastseen().isHidden() && !user->lastseen().isOnline(now)) {
+		if (const auto observed = user->session().localFeatures().lastObservedOnline(user->id)) {
+			return OnlineText(LastseenStatus::OnlineTill(std::min(observed, now)), now) + u" *"_q;
+		}
+	}
 	return OnlineText(user->lastseen(), now);
 }
 
 QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
+	if (!OnlineTextSpecial(user) && user->lastseen().isHidden()
+		&& !user->lastseen().isOnline(now)
+		&& user->session().localFeatures().lastObservedOnline(user->id)) {
+		return OnlineText(user, now);
+	}
 	if (const auto special = OnlineTextSpecial(user)) {
 		return *special;
 	} else if (const auto common = OnlineTextCommon(user->lastseen(), now)) {
