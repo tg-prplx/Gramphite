@@ -1,3 +1,32 @@
+# Gramphite
+
+An unofficial fork of [Telegram Desktop](https://github.com/telegramdesktop/tdesktop). Not affiliated with or endorsed by Telegram.
+
+* **Flat graphite redesign**: a neutral dark-grey palette with white controls, used by default.
+* **macOS liquid glass** (macOS 26+): a glass side bar and chats list, a floating glass compose area, and glass sticker panel, mention autocomplete and inline bot results.
+* **Local features**, toggled per account in a separate settings section: ghost read / stories / online, edit history, keeping deleted and expiring messages, saving protected content, profile and online history, block hints and registration date estimates.
+
+> [!WARNING]
+> Some local features change how the client talks to Telegram servers or bypass content protection. They may violate the [Telegram API Terms of Service](https://core.telegram.org/api/terms). Use them at your own risk.
+
+### Building
+
+Build it the same way as upstream (see the instructions below). `Telegram/lib_ui` comes from the [gramphite-lib_ui](https://github.com/tg-prplx/gramphite-lib_ui) fork, so clone with submodules. Builds made for distribution need their own `api_id`, passed with `-D TDESKTOP_API_ID=... -D TDESKTOP_API_HASH=...`.
+
+### Updating from upstream
+
+All fork changes sit as a few topic commits on the `gramphite` branch, on top of an upstream release tag:
+
+```bash
+git remote add upstream https://github.com/telegramdesktop/tdesktop.git
+git fetch upstream --tags
+git rebase --onto vX.Y.Z vOLD gramphite
+```
+
+`lib_ui` is rebased the same way, onto the commit that upstream pins for the new release.
+
+---
+
 # [Telegram Desktop][telegram_desktop] – Official Messenger
 
 This is the complete source code and the build instructions for the official [Telegram][telegram] messenger desktop client, based on the [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol.
