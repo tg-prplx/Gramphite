@@ -37,6 +37,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/power_saving.h"
 #include "ui/screen_reader_mode.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
+#include "base/event_filter.h"
+#include "base/invoke_queued.h"
 #include "boxes/filters/edit_filter_box.h"
 #include "boxes/choose_filter_box.h"
 #include "boxes/premium_limits_box.h"
@@ -46,12 +49,89 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "apiwrap.h"
 #include "styles/style_widgets.h"
 #include "styles/style_window.h"
+#include "styles/style_dialogs.h"
 #include "styles/style_menu_icons.h"
 
 #include <QtGui/QtEvents>
 
 namespace Window {
 namespace {
+
+class SideGlass final : public Ui::RpWidget {
+public:
+	explicit SideGlass(not_null<QWidget*> body);
+
+	void add(not_null<QWidget*> part);
+	void refresh();
+
+private:
+	const not_null<QWidget*> _body;
+	std::vector<QPointer<QWidget>> _parts;
+	bool _queued = false;
+
+};
+
+SideGlass::SideGlass(not_null<QWidget*> body)
+: RpWidget(body)
+, _body(body) {
+	setAttribute(Qt::WA_TransparentForMouseEvents);
+	setAttribute(Qt::WA_NoSystemBackground);
+	setProperty("_td_nativeGlass", true);
+	hide();
+}
+
+void SideGlass::add(not_null<QWidget*> part) {
+	_parts.push_back(part.get());
+	base::install_event_filter(this, part, [=](not_null<QEvent*> e) {
+		const auto type = e->type();
+		if ((type == QEvent::Show
+			|| type == QEvent::Hide
+			|| type == QEvent::Move
+			|| type == QEvent::Resize) && !_queued) {
+			_queued = true;
+			InvokeQueued(this, [=] {
+				_queued = false;
+				refresh();
+			});
+		}
+		return base::EventFilterResult::Continue;
+	});
+	refresh();
+}
+
+void SideGlass::refresh() {
+	auto united = QRect();
+	for (auto i = begin(_parts); i != end(_parts);) {
+		const auto part = i->data();
+		if (!part) {
+			i = _parts.erase(i);
+			continue;
+		}
+		++i;
+		if (!part->isVisible() || part->window() != _body->window()) {
+			continue;
+		}
+		const auto rect = QRect(
+			_body->mapFromGlobal(part->mapToGlobal(QPoint())),
+			part->size());
+		united = united.isEmpty() ? rect : united.united(rect);
+	}
+	united = united.intersected(_body->rect());
+	if (united.isEmpty()) {
+		hide();
+		return;
+	} else if (geometry() != united || isHidden()) {
+		setGeometry(united);
+		lower();
+		show();
+	}
+	Ui::Platform::SetNativeGlass(this, rect(), 0, st::dialogsBg->c);
+}
+
+[[nodiscard]] SideGlass *LookupSideGlass(not_null<QWidget*> body) {
+	return static_cast<SideGlass*>(
+		body->property("_td_sideGlass").value<void*>());
+}
 
 // The folder tabs container, exposed as a list to screen readers.
 class TabListLayout final : public Ui::VerticalLayout {
@@ -123,8 +203,14 @@ void FiltersMenu::setup() {
 	_menu.setIsMenuButton(true);
 	_menu.setAccessibleName(tr::lng_main_menu(tr::now));
 
-	_outer.setAttribute(Qt::WA_OpaquePaintEvent);
+	const auto glass = Ui::Platform::NativeGlassSupported();
+	_outer.setProperty("_td_nativeGlass", glass);
+	_outer.setAttribute(Qt::WA_OpaquePaintEvent, !glass);
+	_menu.setAttribute(Qt::WA_OpaquePaintEvent, !glass);
 	_outer.show();
+	if (glass) {
+		AddSideGlassPart(_parent, &_outer);
+	}
 
 	// Keep the sidebar's Tab chain in visual order: the main menu button
 	// above the scroll area, and inside it the folders list (entered at
@@ -134,20 +220,29 @@ void FiltersMenu::setup() {
 	_container->setVisualTabOrder(true);
 	_outer.paintRequest(
 	) | rpl::on_next([=](QRect clip) {
+		if (Ui::Platform::HasNativeGlass(&_outer)) {
+			auto p = QPainter(&_outer);
+			p.setCompositionMode(QPainter::CompositionMode_Source);
+			p.fillRect(clip, Qt::transparent);
+			UpdateSideGlass(_parent);
+			return;
+		}
 		auto p = QPainter(&_outer);
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::windowFiltersButton.textBg);
 		p.drawRect(clip);
 	}, _outer.lifetime());
 
-	_parent->heightValue(
-	) | rpl::on_next([=](int height) {
+	rpl::combine(
+		_parent->heightValue(),
+		_session->widget()->titleInsetValue()
+	) | rpl::on_next([=](int height, int inset) {
 		const auto width = st::windowFiltersWidth;
 		_outer.setGeometry({ 0, 0, width, height });
 		_menu.resizeToWidth(width);
-		_menu.move(0, 0);
-		_scroll.setGeometry(
-			{ 0, _menu.height(), width, height - _menu.height() });
+		_menu.move(0, inset);
+		const auto top = inset + _menu.height();
+		_scroll.setGeometry({ 0, top, width, height - top });
 		_container->resizeToWidth(width);
 		_container->move(0, 0);
 	}, _outer.lifetime());
@@ -830,6 +925,26 @@ void FiltersMenu::applyReorder(
 	_ignoreRefresh = true;
 	filters->saveOrder(order);
 	_ignoreRefresh = false;
+}
+
+void AddSideGlassPart(not_null<QWidget*> body, not_null<QWidget*> part) {
+	if (!Ui::Platform::NativeGlassSupported()) {
+		return;
+	}
+	auto glass = LookupSideGlass(body);
+	if (!glass) {
+		glass = Ui::CreateChild<SideGlass>(body.get());
+		body->setProperty(
+			"_td_sideGlass",
+			QVariant::fromValue<void*>(glass));
+	}
+	glass->add(part);
+}
+
+void UpdateSideGlass(not_null<QWidget*> body) {
+	if (const auto glass = LookupSideGlass(body)) {
+		glass->refresh();
+	}
 }
 
 } // namespace Window

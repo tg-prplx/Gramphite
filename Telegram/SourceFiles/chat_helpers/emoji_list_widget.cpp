@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/power_saving.h"
 #include "ui/ui_utility.h"
 #include "ui/cached_round_corners.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "boxes/share_box.h"
 #include "boxes/sticker_set_box.h"
 #include "boxes/stickers_box.h"
@@ -2148,7 +2149,8 @@ void EmojiListWidget::paintEvent(QPaintEvent *e) {
 		p.setCompositionMode(QPainter::CompositionMode_Source);
 		p.fillRect(clip, Qt::transparent);
 		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
-	} else if (st().bg->c.alpha() > 0) {
+	} else if (st().bg->c.alpha() > 0
+		&& !Ui::Platform::HasNativeGlass(this)) {
 		p.fillRect(clip, st().bg);
 	}
 	if (!_searchExpandCache.isNull()) {

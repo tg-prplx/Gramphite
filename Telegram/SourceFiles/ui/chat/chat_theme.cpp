@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/chat_theme.h"
 
+#include "base/platform/base_platform_info.h"
+
 #include "ui/color_contrast.h"
 #include "ui/emoji_config.h"
 #include "ui/painter.h"
@@ -23,6 +25,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 
 namespace Ui {
+
+QColor ChatChromeBackgroundColor(QColor color) {
+	if (Platform::IsMac()) {
+		color.setAlphaF(color.alphaF() * 0.6);
+	}
+	return color;
+}
+
 namespace {
 
 constexpr auto kCacheBackgroundTimeout = 1 * crl::time(1000);

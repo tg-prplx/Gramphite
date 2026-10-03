@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/painter.h"
 #include "ui/rect_part.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "styles/style_chat_helpers.h"
 
 #include <QtWidgets/QApplication>
@@ -733,6 +734,14 @@ void StickersListFooter::paintLeftRightFading(
 	const auto radiusSkip = context.expanding
 		? std::max(context.radius - st::emojiPanRadius, 0)
 		: 0;
+	if (Ui::Platform::HasNativeGlass(this)) {
+		// The fade gradients are opaque colors, over the glass backdrop
+		// use their alpha to fade the icons out instead.
+		p.setCompositionMode(QPainter::CompositionMode_DestinationOut);
+	}
+	const auto guard = gsl::finally([&] {
+		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	});
 	if (o_left > 0) {
 		p.setOpacity(o_left);
 		const auto left = std::max(_iconsLeft, radiusSkip);

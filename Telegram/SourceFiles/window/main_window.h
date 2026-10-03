@@ -118,6 +118,8 @@ public:
 	Ui::RpWidget *bodyWidget() {
 		return _body.data();
 	}
+	[[nodiscard]] int titleInset() const;
+	[[nodiscard]] rpl::producer<int> titleInsetValue() const;
 
 	void launchDrag(
 		std::unique_ptr<QMimeData> data,
@@ -192,9 +194,14 @@ protected:
 	void setPositionInited();
 
 	virtual QRect computeDesktopRect() const;
+	[[nodiscard]] virtual int nativeTitleHeight() const {
+		return 0;
+	}
 
 private:
 	void refreshTitleWidget();
+	void setupMacTitle();
+	void updateTitleInset();
 	void setupCanaryTitleLabel();
 	[[nodiscard]] QString nativeTitleSuffix() const;
 	void updateMinimumSize();
@@ -213,6 +220,7 @@ private:
 	bool _positionInited = false;
 
 	object_ptr<Ui::PlainShadow> _titleShadow = { nullptr };
+	rpl::variable<int> _titleInset = 0;
 	object_ptr<Ui::RpWidget> _outdated;
 	object_ptr<Ui::RpWidget> _screenReaderBar;
 	object_ptr<Ui::RpWidget> _body;

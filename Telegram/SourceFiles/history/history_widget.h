@@ -562,6 +562,10 @@ private:
 	// like send button, emoji button and others.
 	void moveFieldControls();
 	void updateFieldSize();
+	void updateComposeGlass();
+	[[nodiscard]] bool composeGlass() const;
+	[[nodiscard]] QRect composeBarRect() const;
+	[[nodiscard]] QRect composePopupBoundings() const;
 	void initAiButton();
 	void updateAiButtonVisibility();
 	void updateAiButtonGeometry();
@@ -817,6 +821,8 @@ private:
 	object_ptr<Ui::IconButton> _fieldBarCancel;
 
 	std::unique_ptr<Ui::RpWidget> _topBars;
+	std::unique_ptr<Ui::RpWidget> _composeBackground;
+	std::unique_ptr<Ui::RpWidget> _composeReplyBackground;
 
 	std::unique_ptr<HistoryView::TranslateBar> _translateBar;
 	int _translateBarHeight = 0;

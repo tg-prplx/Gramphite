@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/tooltip.h"
 #include "ui/emoji_config.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "lang/lang_cloud_manager.h"
 #include "lang/lang_instance.h"
 #include "core/sandbox.h"
@@ -30,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_account.h" // Account::sessionValue.
 #include "main/main_domain.h"
 #include "mainwidget.h"
+#include "window/window_adaptive.h"
 #include "ui/boxes/confirm_box.h"
 #include "boxes/connection_box.h"
 #include "storage/storage_account.h"
@@ -103,7 +105,9 @@ MainWindow::MainWindow(not_null<Window::Controller*> controller)
 		Ui::ForceFullRepaint(this);
 	}, lifetime());
 
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	const auto glass = Ui::Platform::NativeGlassSupported();
+	setAttribute(Qt::WA_OpaquePaintEvent, !glass);
+	setAttribute(Qt::WA_TranslucentBackground, glass);
 }
 
 void MainWindow::initHook() {
@@ -745,24 +749,29 @@ void MainWindow::updateControlsGeometry() {
 	Platform::MainWindow::updateControlsGeometry();
 
 	auto body = bodyWidget()->rect();
-	if (_passcodeLock) _passcodeLock->setGeometry(body);
-	if (_setupEmailLock) _setupEmailLock->setGeometry(body);
+	const auto inset = titleInset();
+	const auto insetBody = body.marginsRemoved({ 0, inset, 0, 0 });
+	if (_passcodeLock) _passcodeLock->setGeometry(insetBody);
+	if (_setupEmailLock) _setupEmailLock->setGeometry(insetBody);
 	auto mainLeft = 0;
+	auto mainTop = 0;
 	auto mainWidth = body.width();
 	if (const auto session = sessionController()) {
 		if (const auto skip = session->filtersWidth()) {
 			mainLeft += skip;
 			mainWidth -= skip;
+		} else if (session->adaptive().isOneColumn()) {
+			mainTop = inset;
 		}
 	}
 	if (_main) {
 		_main->setGeometry({
 			body.x() + mainLeft,
-			body.y(),
+			body.y() + mainTop,
 			mainWidth,
-			body.height() });
+			body.height() - mainTop });
 	}
-	if (_intro) _intro->setGeometry(body);
+	if (_intro) _intro->setGeometry(insetBody);
 	if (_layer) _layer->setGeometry(body);
 	if (_mediaPreview) _mediaPreview->setGeometry(body);
 	if (_testingThemeWarning) _testingThemeWarning->setGeometry(body);

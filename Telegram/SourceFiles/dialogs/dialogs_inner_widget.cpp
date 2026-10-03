@@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/multi_select.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "ui/unread_badge.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "boxes/filters/edit_filter_box.h"
 #include "boxes/peers/edit_forum_topic_box.h"
 #include "boxes/peer_list_box.h"
@@ -104,6 +105,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Dialogs {
 namespace {
+
+// Section bars stay readable but let the glass backdrop show through.
+[[nodiscard]] QColor SearchedBarBg(not_null<const QWidget*> widget) {
+	auto result = st::searchedBarBg->c;
+	if (::Ui::Platform::HasNativeGlass(widget)) {
+		result.setAlphaF(result.alphaF() * 0.5);
+	}
+	return result;
+}
 
 constexpr auto kFreezeTimeout = 2 * crl::time(1000);
 constexpr auto kHashtagResultsLimit = 5;
@@ -310,7 +320,7 @@ InnerWidget::InnerWidget(
 	+ st::defaultDialogRow.padding.left())
 , _childListShown(std::move(childListShown))
 , _freezeTimer([=] { _shownList->unfreeze(); update(); }) {
-	setAttribute(Qt::WA_OpaquePaintEvent, true);
+	setAttribute(Qt::WA_OpaquePaintEvent, !::Ui::Platform::HasNativeGlass(this));
 	setAccessibleName(tr::lng_recent_chats(tr::now));
 
 	_communityViewable.setRepaint([=] { update(); });
@@ -1085,6 +1095,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			&& !context.rightButton
 			&& !expanding
 			&& !childListShown.shown
+			&& !::Ui::Platform::HasNativeGlass(this)
 			&& (fullWidth > 0);
 		if (cacheAllowed && _rowsScrollCache.hasFresh(cacheKey, cacheSize)) {
 			context.topicsExpanded = 0.;
@@ -1468,7 +1479,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		}
 
 		if (!_peerSearchResults.empty()) {
-			p.fillRect(0, 0, fullWidth, st::searchedBarHeight, st::searchedBarBg);
+			p.fillRect(0, 0, fullWidth, st::searchedBarHeight, SearchedBarBg(this));
 			p.setFont(st::searchedBarFont);
 			p.setPen(st::searchedBarFg);
 			p.drawTextLeft(st::searchedBarPosition.x(), st::searchedBarPosition.y(), width(), tr::lng_search_global_results(tr::now));
@@ -1535,7 +1546,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		if (_previewResults.empty() && _searchResults.empty()) {
 			if (_loadingAnimation) {
 				const auto text = tr::lng_contacts_loading(tr::now);
-				p.fillRect(0, 0, fullWidth, st::searchedBarHeight, st::searchedBarBg);
+				p.fillRect(0, 0, fullWidth, st::searchedBarHeight, SearchedBarBg(this));
 				p.setFont(st::searchedBarFont);
 				p.setPen(st::searchedBarFg);
 				p.drawTextLeft(st::searchedBarPosition.x(), st::searchedBarPosition.y(), width(), text);
@@ -1545,7 +1556,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		}
 		if (!_previewResults.empty()) {
 			const auto text = tr::lng_search_tab_public_posts(tr::now);
-			p.fillRect(0, 0, fullWidth, st::searchedBarHeight, st::searchedBarBg);
+			p.fillRect(0, 0, fullWidth, st::searchedBarHeight, SearchedBarBg(this));
 			p.setFont(st::searchedBarFont);
 			p.setPen(st::searchedBarFg);
 			p.drawTextLeft(st::searchedBarPosition.x(), st::searchedBarPosition.y(), width(), text);
@@ -1624,7 +1635,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			const auto searchLowerText = (_searchHashOrCashtag == HashOrCashtag::None)
 				? _searchState.query.toLower()
 				: QString();
-			p.fillRect(0, 0, fullWidth, st::searchedBarHeight, st::searchedBarBg);
+			p.fillRect(0, 0, fullWidth, st::searchedBarHeight, SearchedBarBg(this));
 			p.setFont(st::searchedBarFont);
 			p.setPen(st::searchedBarFg);
 			p.drawTextLeft(st::searchedBarPosition.x(), st::searchedBarPosition.y(), width(), text);
@@ -1962,6 +1973,13 @@ void InnerWidget::paintPeerSearchResult(
 }
 
 QBrush InnerWidget::currentBg() const {
+	if (::Ui::Platform::HasNativeGlass(this)) {
+		// Transparent rows over the native backdrop, the hover tint of
+		// the opened child list fades in on top of it.
+		auto over = st::dialogsBgOver->c;
+		over.setAlphaF(over.alphaF() * _childListShown.current().shown);
+		return over;
+	}
 	return anim::brush(
 		st::dialogsBg,
 		st::dialogsBgOver,

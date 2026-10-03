@@ -1343,7 +1343,7 @@ std::unique_ptr<Ui::RpWidget> TextErrorSendRestriction(
 		st::historySendPremiumRequired);
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);
 	raw->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(raw).fillRect(clip, st::windowBg);
+		QPainter(raw).fillRect(clip, st::historyComposeFieldBg);
 	}, raw->lifetime());
 	raw->sizeValue(
 	) | rpl::on_next([=](QSize size) {

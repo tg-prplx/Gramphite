@@ -343,6 +343,7 @@ MainMenu::MainMenu(
 	Ui::CreateChild<Ui::FlatLabel>(_footer.get(), st::mainMenuTelegramLabel))
 , _version(AddVersionLabel(_footer)) {
 	setAttribute(Qt::WA_OpaquePaintEvent);
+	setProperty("_td_chromeOccluder", true);
 
 	setupUserpicButton();
 	setupAccountsToggle();

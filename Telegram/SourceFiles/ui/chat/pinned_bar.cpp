@@ -7,6 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/pinned_bar.h"
 
+#include "base/platform/base_platform_info.h"
+#include "ui/chat/chat_theme.h"
+#include "ui/platform/ui_platform_utility.h"
+
 #include "ui/chat/message_bar.h"
 #include "ui/effects/spoiler_mess.h"
 #include "ui/widgets/shadow.h"
@@ -34,14 +38,20 @@ PinnedBar::PinnedBar(
 		_wrap.heightValue(),
 		rpl::mappers::_1 && rpl::mappers::_2 > 0
 	) | rpl::filter([=](bool shown) {
-		return (shown == _shadow->isHidden());
+		return !::Platform::IsMac() && (shown == _shadow->isHidden());
 	}));
 
 	_wrap.entity()->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
-		QPainter(_wrap.entity()).fillRect(clip, st::historyPinnedBg);
+		if (!Platform::HasNativeGlass(_wrap.entity())) {
+			QPainter(_wrap.entity()).fillRect(
+				clip,
+				ChatChromeBackgroundColor(st::historyPinnedBg->c));
+		}
 	}, lifetime());
-	_wrap.setAttribute(Qt::WA_OpaquePaintEvent);
+	_wrap.setAttribute(Qt::WA_OpaquePaintEvent, !::Platform::IsMac());
+	_wrap.setAttribute(Qt::WA_NoSystemBackground, ::Platform::IsMac());
+	_wrap.entity()->setAttribute(Qt::WA_NoSystemBackground, ::Platform::IsMac());
 
 	if (customEmojiPausedChanges) {
 		std::move(

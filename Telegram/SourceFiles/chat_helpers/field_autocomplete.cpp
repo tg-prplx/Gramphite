@@ -53,6 +53,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 #include "ui/round_rect.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs.h"
@@ -62,6 +63,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace ChatHelpers {
 namespace {
+
+const auto kGlassSelectionMargins = QMargins(6, 2, 6, 2);
 
 constexpr auto kEphemeralHintHoverDelay = crl::time(500);
 
@@ -367,6 +370,15 @@ void FieldAutocomplete::paintEvent(QPaintEvent *e) {
 	auto p = Painter(this);
 
 	const auto opacity = _opacityAnimation.value(_hiding ? 0. : 1.);
+	const auto glass = Ui::Platform::HasNativeGlass(this);
+	if (glass) {
+		Ui::Platform::SetNativeGlass(
+			this,
+			rect(),
+			std::min(st::emojiPanRadius, height() / 2),
+			_st.bg->c);
+		Ui::Platform::SetNativeGlassOpacity(this, opacity);
+	}
 	if (opacity < 1.) {
 		if (opacity > 0.) {
 			p.setOpacity(opacity);
@@ -375,7 +387,9 @@ void FieldAutocomplete::paintEvent(QPaintEvent *e) {
 		return;
 	}
 
-	p.fillRect(rect(), _st.bg);
+	if (!glass) {
+		p.fillRect(rect(), _st.bg);
+	}
 }
 
 void FieldAutocomplete::showFiltered(
@@ -998,7 +1012,9 @@ void FieldAutocomplete::animationCallback() {
 	update();
 	if (!_opacityAnimation.animating()) {
 		_cache = QPixmap();
-		setAttribute(Qt::WA_OpaquePaintEvent);
+		setAttribute(
+			Qt::WA_OpaquePaintEvent,
+			!Ui::Platform::HasNativeGlass(this));
 		if (_hiding) {
 			hideFinish();
 		} else {
@@ -1130,6 +1146,9 @@ void FieldAutocomplete::Inner::paintEvent(QPaintEvent *e) {
 }
 
 void FieldAutocomplete::Inner::paintShadow(QPainter &p, int top) {
+	if (Ui::Platform::HasNativeGlass(this)) {
+		return;
+	}
 	const auto left = _adjustShadowLeft ? st::lineWidth : 0;
 	p.fillRect(left, top, width() - left, st::lineWidth, st::shadowFg);
 }
@@ -1259,6 +1278,7 @@ void FieldAutocomplete::Inner::paintRows(Painter &p, QRect clip) {
 	const auto filterSize = int(filter.size());
 	const auto filterIsEmpty = filter.isEmpty();
 	const auto &font = st::mentionFont;
+	const auto glass = Ui::Platform::HasNativeGlass(this);
 	for (auto i = from; i < till; ++i) {
 		if (i >= last) {
 			break;
@@ -1266,13 +1286,26 @@ void FieldAutocomplete::Inner::paintRows(Painter &p, QRect clip) {
 		const auto top = i * st::mentionHeight;
 		const auto textTop = top + st::mentionTop;
 		const auto selected = (i == _sel);
-		if (selected) {
+		if (selected && glass) {
+			auto hq = PainterHighQualityEnabler(p);
+			auto color = st::mentionBgOver->c;
+			color.setAlphaF(color.alphaF() * 0.5);
+			p.setPen(Qt::NoPen);
+			p.setBrush(color);
+			p.drawRoundedRect(
+				QRect(0, top, width(), st::mentionHeight).marginsRemoved(
+					kGlassSelectionMargins),
+				st::roundRadiusLarge,
+				st::roundRadiusLarge);
+		} else if (selected) {
 			p.fillRect(
 				0,
 				top,
 				width(),
 				st::mentionHeight,
 				st::mentionBgOver);
+		}
+		if (selected) {
 			if (!_hrows->empty() || isRemovableMentionRow(i)) {
 				const auto &icon = st::smallCloseIconOver;
 				const auto skip = (st::mentionHeight - icon.height()) / 2;

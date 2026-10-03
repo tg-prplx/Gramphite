@@ -500,7 +500,20 @@ filtersRemove: IconButton(stickersRemove) {
 
 emojiPanMargins: margins(10px, 10px, 10px, 10px);
 
-emojiTabs: defaultTabsSlider;
+emojiTabs: SettingsSlider(defaultTabsSlider) {
+	height: 42px;
+	barTop: 6px;
+	barStroke: 28px;
+	barRadius: 14px;
+	barFg: transparent;
+	barFgActive: windowBgOver;
+	barSnapToLabel: true;
+	labelTop: 11px;
+	labelFg: windowSubTextFg;
+	labelFgActive: windowBoldFg;
+	rippleBg: transparent;
+	rippleBgActive: transparent;
+}
 
 emojiCategoryIconTop: 6px;
 emojiPanAnimation: PanelAnimation(defaultPanelAnimation) {
@@ -512,10 +525,10 @@ emojiPanMaxHeight: 640px;
 emojiPanHeightRatio: 0.75;
 emojiPanShowDuration: 200;
 emojiPanDuration: 200;
-emojiPanHover: windowBgOver;
+emojiPanHover: menuBgOver;
 emojiPanSlideDuration: 200;
 emojiPanArea: size(34px, 32px);
-emojiPanRadius: 8px;
+emojiPanRadius: 12px;
 emojiPanReactionsPreviewPadding: margins(10px, 20px, 10px, 20px);
 emojiPanEmojiPreviewMinHeight: 160px;
 emojiPanEmojiPreviewRadius: 8px + 8px + 4px;
@@ -1276,12 +1289,16 @@ historyTextStyle: TextStyle(defaultTextStyle) {
 		iconPosition: point(4px, 2px);
 	}
 }
+historyComposeFieldSkip: 16px;
+historyComposeFieldBgMargins: margins(-12px, 6px, 4px, 0px);
+historyComposeCircleSize: 40px;
+historyComposeFieldBgRadius: 22px;
 historyComposeField: InputField(defaultInputField) {
 	style: historyTextStyle;
 	textMargins: margins(0px, 0px, 0px, 0px);
 	textAlign: align(left);
 	textFg: historyComposeAreaFg;
-	textBg: historyComposeAreaBg;
+	textBg: historyComposeFieldBg;
 	heightMin: 36px;
 	heightMax: 72px;
 	placeholderFg: placeholderFg;
@@ -1296,9 +1313,13 @@ historyComposeField: InputField(defaultInputField) {
 	borderActive: 0px;
 	duration: 100;
 }
+historyComposeGlassField: InputField(historyComposeField) {
+	textBg: transparent;
+	textBgActive: transparent;
+}
 historyComposeFieldMaxHeight: 224px;
 historyComposeFieldFadeHeight: 6px;
-historySendRight: 2px;
+historySendRight: 8px;
 historySendPadding: 9px;
 // historyMinHeight: 56px;
 
@@ -1384,7 +1405,7 @@ historyAttachEmojiInner: IconButton(historyAttach) {
 }
 historyAttachEmoji: EmojiButton {
 	inner: historyAttachEmojiInner;
-	bg: historyComposeAreaBg;
+	bg: transparent;
 	lineFg: historyEmojiCircleFg;
 	lineFgOver: historyEmojiCircleFgOver;
 }

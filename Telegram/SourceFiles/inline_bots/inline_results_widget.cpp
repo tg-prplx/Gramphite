@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/image/image_prepare.h"
 #include "ui/cached_round_corners.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "styles/style_chat_helpers.h"
 
 namespace InlineBots {
@@ -117,7 +118,7 @@ void Widget::updateContentHeight() {
 
 	resize(QRect(0, 0, innerRect().width(), _contentHeight).marginsAdded(innerPadding()).size());
 	_height = height();
-	moveToLeft(0, resultTop);
+	move(x(), resultTop);
 
 	if (was > _contentHeight) {
 		_scroll->resize(_scroll->width(), _contentHeight);
@@ -145,6 +146,23 @@ void Widget::paintEvent(QPaintEvent *e) {
 		}
 	}
 
+	if (Ui::Platform::HasNativeGlass(this)) {
+		const auto shown = _a_opacity.value(_hiding ? 0. : 1.);
+		const auto opacity = showAnimating
+			? (shown * _a_show.value(1.))
+			: opacityAnimating
+			? shown
+			: (_hiding || isHidden())
+			? 0.
+			: 1.;
+		Ui::Platform::SetNativeGlass(
+			this,
+			innerRect(),
+			st::emojiPanRadius,
+			st::emojiPanBg->c);
+		Ui::Platform::SetNativeGlassOpacity(this, opacity);
+	}
+
 	if (showAnimating) {
 		Assert(_showAnimation != nullptr);
 		if (auto opacity = _a_opacity.value(_hiding ? 0. : 1.)) {
@@ -157,6 +175,9 @@ void Widget::paintEvent(QPaintEvent *e) {
 		hideFinished();
 	} else {
 		if (!_cache.isNull()) _cache = QPixmap();
+		if (Ui::Platform::HasNativeGlass(this)) {
+			return;
+		}
 		if (!_inPanelGrab) _shadow.paint(p, innerRect(), st::roundRadiusSmall);
 		paintContent(p);
 	}
@@ -239,6 +260,9 @@ void Widget::startShowAnimation() {
 		_cache = base::take(cache);
 
 		_showAnimation = std::make_unique<Ui::PanelAnimation>(st::emojiPanAnimation, Ui::PanelAnimation::Origin::BottomLeft);
+		_showAnimation->setSkipShadow(Ui::Platform::HasNativeGlass(this));
+		_showAnimation->setTransparentContent(
+			Ui::Platform::HasNativeGlass(this));
 		auto inner = rect().marginsRemoved(st::emojiPanMargins);
 		_showAnimation->setFinalImage(
 			std::move(image),
@@ -343,7 +367,12 @@ void Widget::clearInlineBot() {
 }
 
 bool Widget::overlaps(const QRect &globalRect) const {
-	if (isHidden() || !_cache.isNull()) return false;
+	// Content below a glass panel shows through it, it must keep painting.
+	if (isHidden()
+		|| !_cache.isNull()
+		|| Ui::Platform::HasNativeGlass(this)) {
+		return false;
+	}
 
 	auto testRect = QRect(mapFromGlobal(globalRect.topLeft()), globalRect.size());
 	auto inner = rect().marginsRemoved(st::emojiPanMargins);

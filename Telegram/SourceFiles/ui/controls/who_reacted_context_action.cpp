@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/call_delayed.h"
 #include "ui/widgets/menu/menu_action.h"
+#include "ui/widgets/menu/menu_common.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/chat/group_call_userpics.h"
@@ -452,11 +453,11 @@ void Action::populateSubmenu() {
 void Action::paint(Painter &p) {
 	const auto enabled = isEnabled();
 	const auto selected = isSelected();
-	if (selected && _st.itemBgOver->c.alpha() < 255) {
-		p.fillRect(0, 0, width(), _height, _st.itemBg);
-	}
-	const auto &bg = selected ? _st.itemBgOver : _st.itemBg;
-	p.fillRect(0, 0, width(), _height, bg);
+	Ui::Menu::PaintItemBackground(
+		p,
+		_st,
+		QRect(0, 0, width(), _height),
+		selected);
 	if (enabled) {
 		paintRipple(p, 0, 0);
 	}
@@ -702,10 +703,11 @@ void WhenAction::resolveMinWidth() {
 void WhenAction::paint(Painter &p) {
 	const auto loading = !isEnabled() && _content.participants.empty();
 	const auto selected = isSelected();
-	if (selected && _st.itemBgOver->c.alpha() < 255) {
-		p.fillRect(0, 0, width(), _height, _st.itemBg);
-	}
-	p.fillRect(0, 0, width(), _height, _st.itemBg);
+	Ui::Menu::PaintItemBackground(
+		p,
+		_st,
+		QRect(0, 0, width(), _height),
+		false);
 	const auto &icon = (_content.type == WhoReadType::Edited)
 		? (selected ? st::whenEditedOver : st::whenEdited)
 		: (_content.type == WhoReadType::Original)
@@ -1108,11 +1110,12 @@ void WhoReactedEntryAction::paint(Painter &&p) {
 	const auto badgeShown = closeAffordanceActive();
 	const auto closeHovered = badgeShown && _closeHovered;
 	const auto selected = isSelected() && !closeHovered;
-	if (selected && _st.itemBgOver->c.alpha() < 255) {
-		p.fillRect(0, 0, width(), _height, _st.itemBg);
-	}
-	const auto bg = selected ? _st.itemBgOver : _st.itemBg;
-	p.fillRect(0, 0, width(), _height, bg);
+	Ui::Menu::PaintItemBackground(
+		p,
+		_st,
+		QRect(0, 0, width(), _height),
+		selected);
+	const auto &bg = selected ? _st.itemBgOver : _st.itemBg;
 	if (enabled && (!_closeRippleActive || _closeRect.isEmpty())) {
 		paintRipple(p, 0, 0);
 	}

@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_widget.h"
 
+#include "base/platform/base_platform_info.h"
+#include "ui/platform/ui_platform_utility.h"
+
 #include "api/api_compose_with_ai.h"
 #include "api/api_editing.h"
 #include "api/api_bot.h"
@@ -227,6 +230,39 @@ constexpr auto kSkipRepaintWhileScrollMs = 100;
 constexpr auto kShowMembersDropdownTimeoutMs = 300;
 constexpr auto kDisplayEditTimeWarningMs = 300 * 1000;
 constexpr auto kFullDayInMs = 86400 * 1000;
+
+// Popups above the compose area must cut through the native glass chrome,
+// which is otherwise composited above all Qt content of the window.
+void MarkChromeOccluder(
+		QWidget *widget,
+		QMargins margins = QMargins(),
+		int radius = 0) {
+	if (!widget) {
+		return;
+	}
+	widget->setProperty("_td_chromeOccluder", true);
+	widget->setProperty(
+		"_td_chromeOccluderMargins",
+		QVariant::fromValue(margins));
+	widget->setProperty("_td_chromeOccluderRadius", radius);
+}
+
+// The history viewport extends beneath the glass top bars and compose area
+// on macOS, popups anchored to it must use the part left visible.
+[[nodiscard]] QRect VisibleScrollGeometry(not_null<QWidget*> scroll) {
+	return scroll->geometry().marginsRemoved(scroll->contentsMargins());
+}
+
+// The saved scroll state is counted for the visible area top, which on
+// macOS sits below the glass top bars, while the scroll position itself
+// is for the viewport top beneath them. Convert before scrolling to it.
+[[nodiscard]] int ScrollTopForVisibleTop(
+		int visibleTop,
+		not_null<QWidget*> scroll) {
+	return (visibleTop == ScrollMax)
+		? visibleTop
+		: (visibleTop - scroll->contentsMargins().top());
+}
 constexpr auto kSaveDraftTimeout = crl::time(1000);
 constexpr auto kSaveDraftAnywayTimeout = 5 * crl::time(1000);
 constexpr auto kSaveCloudDraftIdleTimeout = 14 * crl::time(1000);
@@ -330,7 +366,7 @@ HistoryWidget::HistoryWidget(
 , _forwardPanel(std::make_unique<ForwardPanel>([=] { updateField(); }))
 , _field(
 	this,
-	st::historyComposeField,
+	Platform::IsMac() ? st::historyComposeGlassField : st::historyComposeField,
 	Ui::InputField::Mode::MultiLine,
 	tr::lng_message_ph())
 , _richDraftPreview(std::make_unique<HistoryView::Controls::RichDraftPreview>(
@@ -375,6 +411,66 @@ HistoryWidget::HistoryWidget(
 , _topShadow(this) {
 	setAcceptDrops(true);
 	setVisualTabOrder(true);
+	if (Platform::IsMac()) {
+		_topBars->setAttribute(Qt::WA_NoSystemBackground);
+		_field->setAttribute(Qt::WA_NoSystemBackground);
+		_composeBackground = std::make_unique<Ui::RpWidget>(this);
+		_composeBackground->setAttribute(Qt::WA_NoSystemBackground);
+		_composeBackground->setAttribute(Qt::WA_TransparentForMouseEvents);
+		_composeBackground->paintRequest(
+		) | rpl::on_next([=](QRect clip) {
+			if (!_list || isSearching() || Ui::Platform::NativeGlassSupported()) {
+				return;
+			}
+			if (fieldOrDisabledShown() || isRecording() || replyTo()
+				|| readyToForward() || _kbShown || _suggestOptions) {
+				Painter p(_composeBackground.get());
+				drawField(p, clip);
+			}
+		}, _composeBackground->lifetime());
+	}
+	if (Ui::Platform::NativeGlassSupported()) {
+		_composeBackground->setProperty("_td_systemComposeGlass", true);
+		const auto replyButton = new Ui::AbstractButton(this);
+		_composeReplyBackground.reset(replyButton);
+		replyButton->setClickedCallback([=] {
+			const auto position = replyButton->mapTo(this, replyButton->rect().center());
+			updateOverStates(position);
+			auto event = QMouseEvent(QEvent::MouseButtonPress, QPointF(position),
+				Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+			mousePressEvent(&event);
+		});
+		_composeReplyBackground->setProperty("_td_systemComposeGlass", true);
+		Ui::Platform::InitNativeGlassWithinWindow(_composeReplyBackground.get());
+		_composeReplyBackground->paintRequest(
+		) | rpl::on_next([=](QRect clip) {
+			Painter p(_composeReplyBackground.get());
+			p.translate(-_composeReplyBackground->pos());
+			drawField(p, clip.translated(_composeReplyBackground->pos()));
+		}, _composeReplyBackground->lifetime());
+		_composeReplyBackground->hide();
+		Ui::Platform::InitNativeGlassWithinWindow(_topBars.get());
+		_topBars->paintRequest(
+		) | rpl::on_next([=] {
+			Ui::Platform::SetNativeGlass(
+				_topBars.get(), _topBars->rect(), 0, st::topBarBg->c);
+		}, _topBars->lifetime());
+		for (const auto widget : {
+				static_cast<QWidget*>(_field.data()),
+				static_cast<QWidget*>(_send.get()),
+				static_cast<QWidget*>(_attachToggle.data()),
+				static_cast<QWidget*>(_tabbedSelectorToggle.data()),
+				static_cast<QWidget*>(_fieldBarCancel.data()),
+				static_cast<QWidget*>(_aiButton),
+				static_cast<QWidget*>(_sendAsFile),
+				static_cast<QWidget*>(_expand),
+				static_cast<QWidget*>(_discardRichDraft),
+				static_cast<QWidget*>(_botKeyboardShow.data()),
+				static_cast<QWidget*>(_botKeyboardHide.data()),
+				static_cast<QWidget*>(_botCommandStart.data()) }) {
+			Ui::Platform::InitNativeGlassWithinWindow(widget);
+		}
+	}
 
 	// The controls inside these are created in an order of their own - the
 	// top bar's selection buttons start with the one placed last, the bars
@@ -565,7 +661,9 @@ HistoryWidget::HistoryWidget(
 		showPremiumToast(document);
 		return false;
 	});
-	InitMessageFieldFade(_field, st::historyComposeField.textBg);
+	if (!Platform::IsMac()) {
+		InitMessageFieldFade(_field, st::historyComposeField.textBg);
+	}
 
 	setupFastButtonMode();
 	initAiButton();
@@ -2010,6 +2108,11 @@ void HistoryWidget::initFieldAutocomplete() {
 				context);
 		},
 	});
+	MarkChromeOccluder(_autocomplete.get());
+	if (composeGlass()) {
+		Ui::Platform::InitNativeGlassWithinWindow(_autocomplete.get());
+		_autocomplete->setBoundings(composePopupBoundings());
+	}
 	const auto allow = [=](const auto&) {
 		return _peer->isSelf();
 	};
@@ -2096,6 +2199,14 @@ void HistoryWidget::applyInlineBotQuery(UserData *bot, const QString &query) {
 		}
 		if (!_inlineResults) {
 			_inlineResults.create(this, controller());
+			MarkChromeOccluder(
+				_inlineResults.data(),
+				st::emojiPanMargins,
+				st::emojiPanRadius);
+			if (composeGlass()) {
+				Ui::Platform::InitNativeGlassWithinWindow(
+					_inlineResults.data());
+			}
 			_inlineResults->setResultSelectedCallback([=](
 					InlineBots::ResultSelected result) {
 				if (result.open) {
@@ -2135,6 +2246,11 @@ void HistoryWidget::applyInlineBotQuery(UserData *bot, const QString &query) {
 }
 
 void HistoryWidget::orderWidgets() {
+	if (_composeBackground) {
+		_scroll->lower();
+		_composeBackground->stackUnder(_fieldBarCancel);
+		_topBar->raise();
+	}
 	_voiceRecordBar->raise();
 	_send->raise();
 	_aiButton->raise();
@@ -4065,7 +4181,7 @@ void HistoryWidget::updateControlsVisibility() {
 	};
 
 	if (!_showAnimation) {
-		_topShadow->setVisible(_peer != nullptr);
+		_topShadow->setVisible(_peer != nullptr && !Platform::IsMac());
 		_topBar->setVisible(_peer != nullptr);
 	}
 	_cornerButtons.updateJumpDownVisibility();
@@ -4077,6 +4193,9 @@ void HistoryWidget::updateControlsVisibility() {
 
 	if (_scroll->isHidden()) {
 		_scroll->show();
+	}
+	if (_composeBackground) {
+		_composeBackground->show();
 	}
 	_topBars->show();
 	if (_sponsoredMessageBar && checkSponsoredMessageBarVisibility()) {
@@ -5161,8 +5280,10 @@ bool HistoryWidget::isItemCompletelyHidden(HistoryItem *item) const {
 
 void HistoryWidget::visibleAreaUpdated() {
 	if (_list && !_firstLoadRequest && !_scroll->isHidden()) {
-		const auto scrollTop = _scroll->scrollTop();
-		const auto scrollBottom = scrollTop + _scroll->height();
+		const auto margins = _scroll->contentsMargins();
+		const auto scrollTop = _scroll->scrollTop() + margins.top();
+		const auto scrollBottom = _scroll->scrollTop()
+			+ _scroll->height() - margins.bottom();
 		_list->visibleAreaUpdated(scrollTop, scrollBottom);
 		controller()->floatPlayerAreaUpdated();
 		session().data().itemVisibilitiesUpdated();
@@ -5532,6 +5653,9 @@ void HistoryWidget::hideChildWidgets() {
 		_sponsoredMessageBar->toggle(false, anim::type::instant);
 	}
 	_topBars->hide();
+	if (_composeBackground) {
+		_composeBackground->hide();
+	}
 	if (_subsectionTabs) {
 		_subsectionTabs->hide();
 	}
@@ -6092,9 +6216,9 @@ void HistoryWidget::showAnimated(
 		_requestsBar->finishAnimating();
 	}
 	const auto fromBottom = (direction == Window::SlideDirection::FromBottom);
-	_topShadow->setVisible(fromBottom
+	_topShadow->setVisible(!Platform::IsMac() && (fromBottom
 		? params.withTopBarShadow
-		: !params.withTopBarShadow);
+		: !params.withTopBarShadow));
 	_preserveScrollTop = false;
 	_stickerToast = nullptr;
 
@@ -6102,7 +6226,7 @@ void HistoryWidget::showAnimated(
 
 	hideChildWidgets();
 	if (params.withTopBarShadow && !fromBottom) {
-		_topShadow->show();
+		_topShadow->setVisible(!Platform::IsMac());
 	}
 
 	if (_history && !fromBottom) {
@@ -6261,7 +6385,7 @@ void HistoryWidget::finishAnimating() {
 		return;
 	}
 	_showAnimation = nullptr;
-	_topShadow->setVisible(_peer != nullptr);
+	_topShadow->setVisible(_peer != nullptr && !Platform::IsMac());
 	_topBar->setVisible(_peer != nullptr);
 	_cornerButtons.finishAnimations();
 }
@@ -6360,11 +6484,12 @@ void HistoryWidget::mouseMoveEvent(QMouseEvent *e) {
 
 void HistoryWidget::updateOverStates(QPoint pos) {
 	const auto isReadyToForward = readyToForward();
+	const auto bar = composeBarRect();
 	const auto detailsRect = QRect(
-		0,
-		_field->y() - st::historySendPadding - st::historyReplyHeight,
-		width() - _fieldBarCancel->width(),
-		st::historyReplyHeight);
+		bar.x(),
+		bar.y(),
+		bar.width() - _fieldBarCancel->width(),
+		bar.height());
 	const auto hasWebPage = !!_previewDrawPreview;
 	const auto inDetails = detailsRect.contains(pos)
 		&& (_editMsgId
@@ -7162,6 +7287,10 @@ void HistoryWidget::createTabbedPanel() {
 void HistoryWidget::setTabbedPanel(std::unique_ptr<TabbedPanel> panel) {
 	_tabbedPanel = std::move(panel);
 	if (const auto raw = _tabbedPanel.get()) {
+		MarkChromeOccluder(raw, st::emojiPanMargins, st::emojiPanRadius);
+		if (composeGlass() && !raw->property("_td_glassBackdrop").isValid()) {
+			Ui::Platform::InitNativeGlassWithinWindow(raw);
+		}
 		_tabbedSelectorToggle->installEventFilter(raw);
 		_tabbedSelectorToggle->setColorOverrides(nullptr, nullptr, nullptr);
 	} else {
@@ -7423,6 +7552,7 @@ void HistoryWidget::moveFieldControls() {
 		_sendAs->moveToLeft(left, buttonsBottom);
 		left += _sendAs->width();
 	}
+	left += st::historyComposeFieldSkip;
 	const auto fieldTop = bottom - fieldHeight() - st::historySendPadding;
 	_field->moveToLeft(left, fieldTop);
 	_richDraftPreview->moveToLeft(left, fieldTop);
@@ -7466,11 +7596,23 @@ void HistoryWidget::moveFieldControls() {
 	updateExpandButtonGeometry();
 	updateDiscardRichDraftGeometry();
 
+	const auto bar = composeBarRect();
 	_fieldBarCancel->moveToRight(
-		0,
+		width() - (bar.x() + bar.width()),
 		_field->y() - st::historySendPadding - _fieldBarCancel->height());
 	if (_inlineResults) {
-		_inlineResults->moveBottom(_field->y() - st::historySendPadding);
+		const auto replyShown = composeGlass()
+			&& fieldOrDisabledShown()
+			&& (_editMsgId
+				|| replyTo()
+				|| readyToForward()
+				|| _previewDrawPreview
+				|| _suggestOptions);
+		_inlineResults->moveBottom(_field->y()
+			- st::historySendPadding
+			- (replyShown
+				? (st::historyReplyHeight + st::historySendPadding)
+				: 0));
 	}
 	if (_tabbedPanel) {
 		_tabbedPanel->moveBottomRight(buttonsBottom, width());
@@ -7494,12 +7636,92 @@ void HistoryWidget::moveFieldControls() {
 	if (_sendRestriction) {
 		_sendRestriction->setGeometry(fullWidthButtonRect);
 	}
+	updateComposeGlass();
+}
+
+bool HistoryWidget::composeGlass() const {
+	return _composeReplyBackground != nullptr;
+}
+
+QRect HistoryWidget::composeBarRect() const {
+	const auto top = _field->y()
+		- st::historySendPadding
+		- st::historyReplyHeight;
+	if (!composeGlass()) {
+		return QRect(0, top, width(), st::historyReplyHeight);
+	}
+	// Align the floating bar with the compose capsules below it.
+	const auto size = st::historyComposeCircleSize;
+	const auto attach = _attachToggle->geometry();
+	const auto send = _send->geometry();
+	const auto left = attach.x() + (attach.width() - size) / 2;
+	const auto right = send.x() + (send.width() + size) / 2;
+	return QRect(left, top, right - left, st::historyReplyHeight);
+}
+
+QRect HistoryWidget::composePopupBoundings() const {
+	auto result = VisibleScrollGeometry(_scroll.data());
+	if (!composeGlass()) {
+		return result;
+	}
+	const auto bar = composeBarRect();
+	const auto replyShown = fieldOrDisabledShown() && (_editMsgId
+		|| _replyTo
+		|| readyToForward()
+		|| _kbReplyTo
+		|| _previewDrawPreview
+		|| _suggestOptions);
+	const auto bottom = (replyShown ? bar.y() : (bar.y() + bar.height()))
+		- st::historySendPadding;
+	result.setLeft(bar.x());
+	result.setRight(bar.x() + bar.width() - 1);
+	result.setBottom(std::min(result.bottom(), bottom - 1));
+	return result;
+}
+
+void HistoryWidget::updateComposeGlass() {
+	if (!composeGlass()) {
+		return;
+	}
+	const auto hasReply = fieldOrDisabledShown() && (_editMsgId || _replyTo
+		|| readyToForward() || _kbReplyTo || _previewDrawPreview || _suggestOptions);
+	_composeReplyBackground->setGeometry(composeBarRect());
+	_composeReplyBackground->setVisible(hasReply && _list && !isSearching());
+	_composeReplyBackground->stackUnder(_fieldBarCancel);
+	Ui::Platform::SetNativeGlass(_composeReplyBackground.get(),
+		_composeReplyBackground->rect(), st::historyComposeFieldBgRadius,
+		st::historyReplyBg->c);
+	_composeReplyBackground->update();
+	const auto fieldRect = Ui::ComposeFieldBackgroundRect(
+		_field.data(), _send.get(), _field->y());
+	Ui::Platform::SetNativeGlass(
+		_field.data(),
+		fieldRect.translated(-_field->pos()),
+		std::min(st::historyComposeFieldBgRadius, fieldRect.height() / 2),
+		st::historyComposeFieldBg->c);
+	for (const auto button : {
+			static_cast<QWidget*>(_attachToggle.data()),
+			static_cast<QWidget*>(_send.get()) }) {
+		const auto size = st::historyComposeCircleSize;
+		Ui::Platform::SetNativeGlass(
+			button,
+			QRect((button->width() - size) / 2,
+				(button->height() - size) / 2, size, size),
+			size / 2,
+			st::historyComposeFieldBg->c);
+	}
+	if (_inlineResults) {
+		_inlineResults->move(
+			composeBarRect().x() - st::emojiPanMargins.left(),
+			_inlineResults->y());
+	}
 }
 
 void HistoryWidget::updateFieldSize() {
 	const auto kbShowShown = _history && !_kbShown && _keyboard->hasMarkup();
 	auto fieldWidth = width()
 		- _attachToggle->width()
+		- st::historyComposeFieldSkip
 		- st::historySendRight
 		- _send->width()
 		- _tabbedSelectorToggle->width();
@@ -8056,7 +8278,7 @@ QPixmap HistoryWidget::grabForShowAnimation(
 	_inGrab = false;
 	updateControlsGeometry();
 	if (params.withTopBarShadow) {
-		_topShadow->show();
+		_topShadow->setVisible(!Platform::IsMac());
 	}
 	return result;
 }
@@ -8100,6 +8322,13 @@ void HistoryWidget::resizeEvent(QResizeEvent *e) {
 
 void HistoryWidget::updateControlsGeometry() {
 	const auto width = this->width();
+	if (_composeBackground) {
+		_composeBackground->setGeometry(rect());
+		_composeBackground->update();
+		if (_composeReplyBackground) {
+			_composeReplyBackground->update();
+		}
+	}
 
 	_topBar->resizeToWidth(width);
 	_topBar->moveToLeft(0, 0);
@@ -8165,13 +8394,14 @@ void HistoryWidget::updateControlsGeometry() {
 	_topBars->resize(
 		innerWidth,
 		scrollAreaTop - _topBars->y() + st::lineWidth);
-	if (_scroll->y() != scrollAreaTop || _scroll->x() != tabsLeftSkip) {
-		_scroll->moveToLeft(tabsLeftSkip, scrollAreaTop);
+	const auto viewportTop = Platform::IsMac() ? 0 : scrollAreaTop;
+	if (_scroll->y() != viewportTop || _scroll->x() != tabsLeftSkip) {
+		_scroll->moveToLeft(tabsLeftSkip, viewportTop);
 		if (_autocomplete) {
-			_autocomplete->setBoundings(_scroll->geometry());
+			_autocomplete->setBoundings(composePopupBoundings());
 		}
 		if (_supportAutocomplete) {
-			_supportAutocomplete->setBoundings(_scroll->geometry());
+			_supportAutocomplete->setBoundings(composePopupBoundings());
 		}
 	}
 
@@ -8181,6 +8411,7 @@ void HistoryWidget::updateControlsGeometry() {
 		{ ScrollChangeAdd, base::take(_topDelta) });
 
 	updateFieldSize();
+	updateComposeGlass();
 
 	_cornerButtons.updatePositions();
 	_pullToNext->updateGeometry();
@@ -8264,7 +8495,9 @@ bool HistoryWidget::hasSavedScroll() const {
 
 int HistoryWidget::countInitialScrollTop() {
 	if (hasSavedScroll()) {
-		return _list->historyScrollTop();
+		return ScrollTopForVisibleTop(
+			_list->historyScrollTop(),
+			_scroll.data());
 	} else if (_showAtMsgId
 		&& (IsServerMsgId(_showAtMsgId)
 			|| IsClientMsgId(_showAtMsgId)
@@ -8478,6 +8711,29 @@ void HistoryWidget::updateHistoryGeometry(
 	if (newScrollHeight <= 0) {
 		return;
 	}
+	if (Platform::IsMac()) {
+		const auto topInset = _topBars->bottomNoMargins() - st::lineWidth;
+		const auto bottomInset = (fieldOrDisabledShown() || isRecording())
+			? fieldHeight() + 2 * st::historySendPadding
+				+ ((_editMsgId || replyTo() || readyToForward()
+					|| _previewDrawPreview || _suggestOptions)
+					? st::historyReplyHeight : 0)
+			: 0;
+		_scroll->setContentsMargins(0, topInset, 0, bottomInset);
+		_scroll->setBarTopInset(topInset);
+		_scroll->setBarBottomInset(bottomInset);
+		if (_list) {
+			_list->setContentsMargins(0, topInset, 0, bottomInset);
+		}
+		// Insets change without resizing the viewport when a reply appears.
+		if (_autocomplete) {
+			_autocomplete->setBoundings(composePopupBoundings());
+		}
+		if (_supportAutocomplete) {
+			_supportAutocomplete->setBoundings(composePopupBoundings());
+		}
+		newScrollHeight += topInset + bottomInset;
+	}
 	const auto wasScrollTop = _scroll->scrollTop();
 	const auto wasAtBottom = (wasScrollTop >= _scroll->scrollTopMax());
 	const auto needResize = (_scroll->width() != newScrollWidth)
@@ -8493,10 +8749,10 @@ void HistoryWidget::updateHistoryGeometry(
 	}
 	if (needResize || initial) {
 		if (_autocomplete) {
-			_autocomplete->setBoundings(_scroll->geometry());
+			_autocomplete->setBoundings(composePopupBoundings());
 		}
 		if (_supportAutocomplete) {
-			_supportAutocomplete->setBoundings(_scroll->geometry());
+			_supportAutocomplete->setBoundings(composePopupBoundings());
 		}
 		_cornerButtons.updatePositions();
 		controller()->floatPlayerAreaUpdated();
@@ -8533,7 +8789,7 @@ void HistoryWidget::updateHistoryGeometry(
 		newScrollTop = countAutomaticScrollTop();
 	} else {
 		newScrollTop = std::min(
-			_list->historyScrollTop(),
+			ScrollTopForVisibleTop(_list->historyScrollTop(), _scroll.data()),
 			_scroll->scrollTopMax());
 		if (change.type == ScrollChangeAdd) {
 			newScrollTop += change.value;
@@ -8592,7 +8848,9 @@ void HistoryWidget::revealItemsCallback() {
 
 		const auto newScrollTop = (wasAtBottom && !_history->unreadBar())
 			? countAutomaticScrollTop()
-			: _list->historyScrollTop();
+			: ScrollTopForVisibleTop(
+				_list->historyScrollTop(),
+				_scroll.data());
 		const auto toY = std::clamp(newScrollTop, 0, _scroll->scrollTopMax());
 		synteticScrollToY(toY);
 	}
@@ -11109,6 +11367,15 @@ void HistoryWidget::updateField() {
 		return;
 	}
 	_repaintFieldScheduled = true;
+	if (Ui::Platform::NativeGlassSupported()) {
+		_repaintFieldScheduled = false;
+		if (_composeReplyBackground) { _composeReplyBackground->update(); }
+		return;
+	}
+	if (_composeBackground) {
+		_composeBackground->update();
+		return;
+	}
 	const auto fieldAreaTop = _scroll->y() + _scroll->height();
 	rtlupdate(0, fieldAreaTop, width(), height() - fieldAreaTop);
 }
@@ -11131,7 +11398,31 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	}
 	p.setInactive(
 		controller()->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
-	p.fillRect(myrtlrect(0, backy, width(), backh), st::historyReplyBg);
+	if (!Platform::IsMac()) {
+		p.fillRect(myrtlrect(0, backy, width(), backh), st::historyReplyBg);
+	} else if (!Ui::Platform::NativeGlassSupported()
+		&& backy < _field->y() - st::historySendPadding) {
+		p.fillRect(
+			myrtlrect(0, backy, width(), st::historyReplyHeight),
+			Ui::ChatChromeBackgroundColor(st::historyReplyBg->c));
+	}
+	if (fieldOrDisabledShown()) {
+		Ui::PaintComposeFieldBackground(
+			p,
+			Ui::ComposeFieldBackgroundRect(
+				_field.data(),
+				_send.get(),
+				_field->y()));
+		Ui::PaintComposeButtonCircle(p, _attachToggle.data());
+		Ui::PaintComposeButtonCircle(p, _send.get());
+	}
+
+	// The reply bar may float inset from the edges, lay it out inside.
+	const auto bar = composeBarRect();
+	const auto barWidth = bar.width();
+	p.save();
+	p.translate(bar.x(), 0);
+	const auto restoreTranslation = gsl::finally([&] { p.restore(); });
 
 	const auto media = (!_previewDrawPreview && drawMsgText)
 		? drawMsgText->media()
@@ -11171,7 +11462,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 		st::historyLinkIcon.paint(
 			p,
 			st::historyReplyIconPosition + QPoint(0, backy),
-			width());
+			barWidth);
 		const auto textTop = backy + st::msgReplyPadding.top();
 		auto previewLeft = st::historyReplySkip;
 
@@ -11184,7 +11475,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 			previewLeft += st::historyReplyPreview + st::msgReplyBarSkip;
 		}
 		p.setPen(st::historyReplyNameFg);
-		const auto elidedWidth = width()
+		const auto elidedWidth = barWidth
 			- previewLeft
 			- _fieldBarCancel->width()
 			- st::msgReplyPadding.right();
@@ -11206,7 +11497,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 		const auto pausedSpoiler = paused || On(PowerSaving::kChatSpoiler);
 		auto replyLeft = st::historyReplySkip;
 		if (_suggestOptions) {
-			_suggestOptions->paintIcon(p, 0, backy, width());
+			_suggestOptions->paintIcon(p, 0, backy, barWidth);
 		} else {
 			(_editMsgId
 				? st::historyEditIcon
@@ -11215,7 +11506,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 				: st::historyReplyIcon).paint(
 					p,
 					st::historyReplyIconPosition + QPoint(0, backy),
-					width());
+					barWidth);
 		}
 		if (drawMsgText) {
 			if (hasPreview) {
@@ -11256,7 +11547,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 				replyLeft += st::historyReplyPreview + st::msgReplyBarSkip;
 			}
 			if (_suggestOptions) {
-				_suggestOptions->paintLines(p, replyLeft, backy, width());
+				_suggestOptions->paintLines(p, replyLeft, backy, barWidth);
 			} else {
 				p.setPen(st::historyReplyNameFg);
 				if (_editMsgId) {
@@ -11266,7 +11557,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 						p,
 						replyLeft,
 						backy + st::msgReplyPadding.top(),
-						width()
+						barWidth
 							- replyLeft
 							- _fieldBarCancel->width()
 							- st::msgReplyPadding.right());
@@ -11278,7 +11569,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 						st::msgReplyPadding.top()
 							+ st::msgServiceNameFont->height
 							+ backy),
-					.availableWidth = width()
+					.availableWidth = barWidth
 						- replyLeft
 						- _fieldBarCancel->width()
 						- st::msgReplyPadding.right(),
@@ -11300,7 +11591,7 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 					+ st::msgDateFont->ascent,
 				st::msgDateFont->elided(
 					tr::lng_profile_loading(tr::now),
-					width()
+					barWidth
 						- replyLeft
 						- _fieldBarCancel->width()
 						- st::msgReplyPadding.right()));
@@ -11308,15 +11599,15 @@ void HistoryWidget::drawField(Painter &p, const QRect &rect) {
 	} else if (hasForward) {
 		st::historyForwardIcon.paint(
 			p,
-			st::historyReplyIconPosition + QPoint(0, backy), width());
+			st::historyReplyIconPosition + QPoint(0, backy), barWidth);
 		const auto x = st::historyReplySkip;
-		const auto available = width()
+		const auto available = barWidth
 			- x
 			- _fieldBarCancel->width()
 			- st::msgReplyPadding.right();
-		_forwardPanel->paint(p, x, backy, available, width());
+		_forwardPanel->paint(p, x, backy, available, barWidth);
 	} else if (_suggestOptions) {
-		_suggestOptions->paintBar(p, 0, backy, width());
+		_suggestOptions->paintBar(p, 0, backy, barWidth);
 	}
 }
 
@@ -11412,7 +11703,7 @@ void HistoryWidget::paintEvent(QPaintEvent *e) {
 
 	Painter p(this);
 	const auto clip = e->rect();
-	if (_list) {
+	if (_list && !_composeBackground) {
 		const auto restrictionHidden = fieldOrDisabledShown()
 			|| isRecording();
 		if (restrictionHidden
@@ -11424,7 +11715,7 @@ void HistoryWidget::paintEvent(QPaintEvent *e) {
 				drawField(p, clip);
 			}
 		}
-	} else {
+	} else if (!_list) {
 		const auto w = 0
 			+ st::msgServiceFont->width(tr::lng_willbe_history(tr::now))
 			+ st::msgPadding.left()

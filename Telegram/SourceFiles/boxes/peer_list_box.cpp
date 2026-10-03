@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_options.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "lang/lang_keys.h"
 #include "storage/file_download.h"
 #include "data/data_peer_values.h"
@@ -1703,8 +1704,10 @@ void PeerListContent::paintEvent(QPaintEvent *e) {
 				}
 			}
 		}
-		for (const auto &rect : fill) {
-			p.fillRect(rect, _st.item.button.textBg);
+		if (!Ui::Platform::HasNativeGlass(this)) {
+			for (const auto &rect : fill) {
+				p.fillRect(rect, _st.item.button.textBg);
+			}
 		}
 	}
 	p.translate(0, rowsTopCached);
@@ -1909,8 +1912,18 @@ void PeerListContent::mousePressEvent(QMouseEvent *e) {
 					std::move(updateCallback));
 			} else {
 				const auto maskGenerator = [&] {
-					return Ui::RippleAnimation::RectMask(
-						QSize(width(), _rowHeight));
+					const auto size = QSize(width(), _rowHeight);
+					const auto radius = st::listRowSelectRadius;
+					return Ui::RippleAnimation::MaskByDrawer(
+						size,
+						false,
+						[&](QPainter &p) {
+							p.drawRoundedRect(
+								QRect(QPoint(), size).marginsRemoved(
+									st::listRowSelectMargin),
+								radius,
+								radius);
+						});
 				};
 				row->addRipple(_st.item, maskGenerator, point, std::move(updateCallback));
 			}
@@ -2065,6 +2078,7 @@ crl::time PeerListContent::paintRow(
 
 	const auto activeElement = (active.index == index) ? active.element : 0;
 	if (_rowsScrollCache.scrolling()
+		&& !Ui::Platform::HasNativeGlass(this)
 		&& !selected
 		&& !activeElement
 		&& !row->elementsAnimating()
@@ -2119,7 +2133,27 @@ void PeerListContent::paintRowContent(
 		}
 	});
 
-	p.fillRect(0, 0, outerWidth, _rowHeight, bg);
+	const auto glass = Ui::Platform::HasNativeGlass(this);
+	if (!glass) {
+		p.fillRect(0, 0, outerWidth, _rowHeight, st.button.textBg);
+	}
+	if (selected) {
+		const auto radius = st::listRowSelectRadius;
+		auto hq = PainterHighQualityEnabler(p);
+		p.setPen(Qt::NoPen);
+		if (glass) {
+			auto color = bg->c;
+			color.setAlphaF(color.alphaF() * 0.5);
+			p.setBrush(color);
+		} else {
+			p.setBrush(bg);
+		}
+		p.drawRoundedRect(
+			QRect(0, 0, outerWidth, _rowHeight).marginsRemoved(
+				st::listRowSelectMargin),
+			radius,
+			radius);
+	}
 	row->paintRipple(p, st, 0, 0, outerWidth);
 	row->paintUserpic(
 		p,

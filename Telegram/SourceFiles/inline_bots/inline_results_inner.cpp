@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/path_shift_gradient.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "history/view/history_view_cursor_state.h"
 #include "history/history.h"
 #include "styles/style_chat_helpers.h"
@@ -216,7 +217,9 @@ void Inner::paintEvent(QPaintEvent *e) {
 	if (r != rect()) {
 		p.setClipRect(r);
 	}
-	p.fillRect(r, st::emojiPanBg);
+	if (!Ui::Platform::HasNativeGlass(this)) {
+		p.fillRect(r, st::emojiPanBg);
+	}
 
 	paintInlineItems(p, r);
 }

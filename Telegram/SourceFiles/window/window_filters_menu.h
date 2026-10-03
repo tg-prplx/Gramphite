@@ -103,4 +103,9 @@ private:
 
 };
 
+// Left-side chrome parts (filters, chats list) share one native backdrop,
+// so their blur is identical and there is no seam between them.
+void AddSideGlassPart(not_null<QWidget*> body, not_null<QWidget*> part);
+void UpdateSideGlass(not_null<QWidget*> body);
+
 } // namespace Window

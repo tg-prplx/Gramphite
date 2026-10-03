@@ -7,6 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_top_bar_widget.h"
 
+#include "base/platform/base_platform_info.h"
+#include "ui/chat/chat_theme.h"
+#include "ui/platform/ui_platform_utility.h"
+
 #include "history/history.h"
 #include "history/view/history_view_send_action.h"
 #include "boxes/add_contact_box.h"
@@ -65,7 +69,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "support/support_helper.h"
 #include "apiwrap.h"
 #include "api/api_chat_participants.h"
+#include "ui/controls/send_button.h"
 #include "styles/style_window.h"
+#include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_chat.h"
 #include "styles/style_info.h"
@@ -130,7 +136,9 @@ TopBarWidget::TopBarWidget(
 , _menuToggle(this, st::topBarMenuToggle)
 , _titlePeerText(st::windowMinWidth / 3)
 , _onlineUpdater([=] { updateOnlineDisplay(); }) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, !Platform::IsMac());
+	setAttribute(Qt::WA_NoSystemBackground, Platform::IsMac());
+	Ui::Platform::InitNativeGlassWithinWindow(this);
 
 	_clear->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 	_forward->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
@@ -524,7 +532,13 @@ void TopBarWidget::paintEvent(QPaintEvent *e) {
 		: -st::topBarHeight;
 	const auto slidingTop = std::max(selectedButtonsTop, searchFieldTop);
 
-	p.fillRect(QRect(0, 0, width(), st::topBarHeight), st::topBarBg);
+	if (Ui::Platform::HasNativeGlass(this)) {
+		Ui::Platform::SetNativeGlass(this, rect(), 0, st::topBarBg->c);
+	} else {
+		p.fillRect(
+			QRect(0, 0, width(), st::topBarHeight),
+			Ui::ChatChromeBackgroundColor(st::topBarBg->c));
+	}
 	if (slidingTop < 0) {
 		p.translate(0, slidingTop + st::topBarHeight);
 		paintTopBar(p);
@@ -1293,7 +1307,8 @@ void TopBarWidget::finishAnimating() {
 void TopBarWidget::setAnimatingMode(bool enabled) {
 	if (_animatingMode != enabled) {
 		_animatingMode = enabled;
-		setAttribute(Qt::WA_OpaquePaintEvent, !_animatingMode);
+		setAttribute(Qt::WA_OpaquePaintEvent,
+			!_animatingMode && !Platform::IsMac());
 		finishAnimating();
 	} else if (!enabled) {
 		finishAnimating();

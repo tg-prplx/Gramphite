@@ -111,9 +111,9 @@ mainMenuUserpic: UserpicButton(defaultUserpicButton) {
 }
 mainMenuButton: SettingsButton(defaultSettingsButton) {
 	style: semiboldTextStyle;
-	padding: margins(61px, 11px, 20px, 9px);
+	padding: margins(64px, 12px, 24px, 12px);
 	toggleSkip: 19px;
-	iconLeft: 21px;
+	iconLeft: 24px;
 }
 mainMenuAddAccountButton: SettingsButton(mainMenuButton) {
 	iconLeft: 23px;
@@ -226,14 +226,25 @@ createThemeLink: InputField(defaultInputField) {
 	heightMin: 34px;
 }
 
-windowFiltersWidth: 72px;
+windowFiltersWidth: 80px;
+windowFiltersGlassMargin: margins(0px, 0px, 0px, 0px);
+windowFiltersGlassRadius: 0px;
+macWindowTitle: WindowTitle {
+	height: 0px;
+	bg: titleBg;
+	bgActive: titleBgActive;
+	fg: titleFg;
+	fgActive: titleFgActive;
+	style: defaultTextStyle;
+}
+macWindowTitleInset: 28px;
 windowFiltersButton: SideBarButton(defaultSideBarButton) {
 	textTop: 40px;
-	textSkip: 6px;
-	minHeight: 62px;
+	textSkip: 8px;
+	minHeight: 64px;
 	minTextWidth: 48px;
 	style: TextStyle(defaultTextStyle) {
-		font: font(11px semibold);
+		font: font(10px semibold);
 	}
 	badgeStyle: TextStyle(defaultTextStyle) {
 		font: font(12px semibold);

@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 #include "ui/text/text_custom_emoji.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "styles/style_chat_helpers.h"
 
 #include <QtWidgets/QApplication>
@@ -430,7 +431,20 @@ void SearchWithGroups::scrollGroupsTo(int left) {
 
 void SearchWithGroups::initEdges() {
 	paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(this).fillRect(clip, _st.bg);
+		auto p = QPainter(this);
+		if (Platform::HasNativeGlass(this)) {
+			// Corners are faked with the outer color, which would show
+			// up as a dark band over a native glass backdrop.
+			auto hq = PainterHighQualityEnabler(p);
+			auto color = _st.bg->c;
+			color.setAlphaF(color.alphaF() * 0.5);
+			const auto radius = height() / 2.;
+			p.setPen(Qt::NoPen);
+			p.setBrush(color);
+			p.drawRoundedRect(rect(), radius, radius);
+		} else {
+			p.fillRect(clip, _st.bg);
+		}
 	}, lifetime());
 
 	const auto makeEdge = [&](bool left) {
@@ -445,6 +459,9 @@ void SearchWithGroups::initEdges() {
 		}
 		edge->paintRequest(
 		) | rpl::on_next([=] {
+			if (Platform::HasNativeGlass(edge)) {
+				return;
+			}
 			const auto ratio = edge->devicePixelRatioF();
 			ensureRounding(height(), ratio);
 			const auto size = _rounding.height();

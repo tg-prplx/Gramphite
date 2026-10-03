@@ -22,6 +22,8 @@ class CustomEmoji;
 
 namespace Ui {
 
+[[nodiscard]] QColor ChatChromeBackgroundColor(QColor color);
+
 class ChatStyle;
 struct ChatPaintContext;
 struct BubblePattern;

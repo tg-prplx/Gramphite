@@ -562,6 +562,28 @@ void Generator::paintComposeArea() {
 	_p->fillRect(_composeArea, st::historyReplyBg[_palette]);
 
 	auto controlsTop = _composeArea.y() + _composeArea.height() - st::historySendSize.height();
+	{
+		const auto pillLeft = _composeArea.x()
+			+ st::historyAttach.width
+			+ st::historyComposeFieldSkip;
+		const auto pill = QRect(
+			pillLeft,
+			controlsTop,
+			_composeArea.x()
+				+ _composeArea.width()
+				- st::historySendRight
+				- st::historySendSize.width()
+				- pillLeft,
+			st::historySendSize.height()).marginsRemoved(
+				st::historyComposeFieldBgMargins);
+		const auto radius = std::min(
+			st::historyComposeFieldBgRadius,
+			pill.height() / 2);
+		PainterHighQualityEnabler hq(*_p);
+		_p->setPen(Qt::NoPen);
+		_p->setBrush(st::historyComposeFieldBg[_palette]);
+		_p->drawRoundedRect(pill, radius, radius);
+	}
 	const auto attachIconLeft = (st::historyAttach.iconPosition.x() < 0)
 		? ((st::historyAttach.width - st::historyAttach.icon.width()) / 2)
 		: st::historyAttach.iconPosition.x();
@@ -588,7 +610,6 @@ void Generator::paintComposeArea() {
 	const auto &emojiIcon = emojiButton.icon[_palette];
 	right += emojiButton.width;
 	auto attachEmojiLeft = _composeArea.x() + _composeArea.width() - right;
-	_p->fillRect(attachEmojiLeft, controlsTop, emojiButton.width, emojiButton.height, st::historyComposeAreaBg[_palette]);
 	emojiIcon.paint(*_p, attachEmojiLeft + emojiIconLeft, controlsTop + emojiIconTop, _rect.width());
 
 	auto pen = st::historyEmojiCircleFg[_palette]->p;
@@ -607,9 +628,11 @@ void Generator::paintComposeArea() {
 		emojiIcon.height() - 2 * skipy);
 	_p->drawEllipse(inner);
 
-	auto fieldLeft = _composeArea.x() + st::historyAttach.width;
+	auto fieldLeft = _composeArea.x()
+		+ st::historyAttach.width
+		+ st::historyComposeFieldSkip;
 	auto fieldTop = _composeArea.y() + _composeArea.height() - st::historyAttach.height + st::historySendPadding;
-	auto fieldWidth = _composeArea.width() - st::historyAttach.width - st::historySendSize.width() - st::historySendRight - emojiButton.width;
+	auto fieldWidth = _composeArea.width() - st::historyAttach.width - st::historyComposeFieldSkip - st::historySendSize.width() - st::historySendRight - emojiButton.width;
 	auto fieldHeight = st::historySendSize.height() - 2 * st::historySendPadding;
 	auto field = QRect(fieldLeft, fieldTop, fieldWidth, fieldHeight);
 	_p->fillRect(field, st::historyComposeField.textBg[_palette]);

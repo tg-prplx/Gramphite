@@ -47,6 +47,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/confirm_box.h"
 #include "ui/text/text_entity.h"
 #include "ui/painter.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "window/window_session_controller.h" // GifPauseReason.
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
@@ -1420,7 +1421,7 @@ QRect StickersListWidget::stickerRect(int section, int sel) {
 void StickersListWidget::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 	auto clip = e->rect();
-	if (st().bg->c.alpha() > 0) {
+	if (st().bg->c.alpha() > 0 && !Ui::Platform::HasNativeGlass(this)) {
 		p.fillRect(clip, st().bg);
 	}
 

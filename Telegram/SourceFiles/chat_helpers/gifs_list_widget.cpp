@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/ripple_animation.h"
 #include "ui/image/image.h"
 #include "ui/painter.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "boxes/stickers_box.h"
 #include "inline_bots/inline_bot_result.h"
 #include "storage/localstorage.h"
@@ -338,7 +339,9 @@ void GifsListWidget::inlineResultsDone(const MTPmessages_BotResults &result) {
 void GifsListWidget::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 	auto clip = e->rect();
-	p.fillRect(clip, st().bg);
+	if (!Ui::Platform::HasNativeGlass(this)) {
+		p.fillRect(clip, st().bg);
+	}
 
 	paintInlineItems(p, clip);
 }

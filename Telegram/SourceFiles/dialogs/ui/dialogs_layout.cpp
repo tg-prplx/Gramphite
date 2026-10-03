@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/unread_badge.h"
 #include "ui/unread_badge_paint.h"
 #include "ui/unread_counter_format.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_dialogs_layout.h"
 #include "styles/style_widgets.h"
@@ -56,6 +57,8 @@ namespace Dialogs::Ui {
 const char kOptionDialogsMuteIcon[] = "dialogs-mute-icon";
 
 namespace {
+
+constexpr auto kGlassSelectionOpacity = 0.5;
 
 base::options::toggle DialogsMuteIcon({
 	.id = kOptionDialogsMuteIcon,
@@ -285,6 +288,24 @@ int PaintBadges(
 	return (initial - right);
 }
 
+void PaintRowSelection(QPainter &p, QRect geometry, const QBrush &bg) {
+	const auto radius = st::dialogsRowSelectRadius;
+	auto hq = PainterHighQualityEnabler(p);
+	p.setPen(Qt::NoPen);
+	const auto widget = dynamic_cast<QWidget*>(p.device());
+	if (widget && ::Ui::Platform::HasNativeGlass(widget)) {
+		auto color = bg.color();
+		color.setAlphaF(color.alphaF() * kGlassSelectionOpacity);
+		p.setBrush(color);
+	} else {
+		p.setBrush(bg);
+	}
+	p.drawRoundedRect(
+		geometry.marginsRemoved(st::dialogsRowSelectMargin),
+		radius,
+		radius);
+}
+
 void PaintExpandedTopicsBar(QPainter &p, float64 progress) {
 	auto hq = PainterHighQualityEnabler(p);
 	const auto radius = st::roundRadiusLarge;
@@ -465,11 +486,6 @@ void PaintRow(
 	const auto thread = entry->asThread();
 	const auto sublist = entry->asSublist();
 
-	auto bg = context.active
-		? st::dialogsBgActive
-		: context.selected
-		? st::dialogsBgOver
-		: context.currentBg;
 	auto swipeTranslation = 0.;
 	auto swipeMirrored = false;
 	if (history
@@ -484,7 +500,13 @@ void PaintRow(
 	if (swipeTranslation) {
 		p.translate(swipeMirrored ? swipeTranslation : -swipeTranslation, 0);
 	}
-	p.fillRect(geometry, bg);
+	p.fillRect(geometry, context.currentBg);
+	if (context.active || context.selected) {
+		PaintRowSelection(
+			p,
+			geometry,
+			context.active ? st::dialogsBgActive : st::dialogsBgOver);
+	}
 	if (!(flags & Flag::TopicJumpRipple)) {
 		auto ripple = context.active
 			? st::dialogsRippleBgActive
@@ -1412,9 +1434,16 @@ void PaintCollapsedRow(
 		const QString &text,
 		int unread,
 		const PaintContext &context) {
-	p.fillRect(
-		QRect{ 0, 0, context.width, st::dialogsImportantBarHeight },
-		context.selected ? st::dialogsBgOver : context.currentBg);
+	const auto barRect = QRect{
+		0,
+		0,
+		context.width,
+		st::dialogsImportantBarHeight,
+	};
+	p.fillRect(barRect, context.currentBg);
+	if (context.selected) {
+		PaintRowSelection(p, barRect, st::dialogsBgOver);
+	}
 
 	row.paintRipple(p, 0, 0, context.width);
 

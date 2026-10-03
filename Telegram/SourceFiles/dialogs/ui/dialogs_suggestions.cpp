@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/search_field_controller.h"
 #include "ui/unread_badge_paint.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "window/window_separate_id.h"
 #include "window/window_session_controller.h"
 #include "window/window_peer_menu.h"
@@ -79,6 +80,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Dialogs {
 namespace {
+
+// Section bars stay readable but let the glass backdrop show through.
+[[nodiscard]] QColor SearchedBarBg(not_null<const QWidget*> widget) {
+	auto result = st::searchedBarBg->c;
+	if (::Ui::Platform::HasNativeGlass(widget)) {
+		result.setAlphaF(result.alphaF() * 0.5);
+	}
+	return result;
+}
 
 constexpr auto kCollapsedChannelsCount = 5;
 constexpr auto kProbablyMaxChannels = 1000;
@@ -748,7 +758,7 @@ void Suggestions::ObjectListController::setupPlainDivider(
 		label->moveToLeft(x, y, size.width());
 	}, raw->lifetime());
 	raw->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(raw).fillRect(clip, st::searchedBarBg);
+		QPainter(raw).fillRect(clip, SearchedBarBg(raw));
 	}, raw->lifetime());
 
 	delegate()->peerListSetAboveWidget(std::move(result));
@@ -815,7 +825,7 @@ void Suggestions::ObjectListController::setupExpandDivider(
 	}, raw->lifetime());
 
 	raw->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(raw).fillRect(clip, st::searchedBarBg);
+		QPainter(raw).fillRect(clip, SearchedBarBg(raw));
 	}, raw->lifetime());
 
 	delegate()->peerListSetAboveWidget(std::move(result));
@@ -936,7 +946,7 @@ void RecentsController::setupDivider() {
 		label->moveToLeft(x, y, size.width());
 	}, raw->lifetime());
 	raw->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(raw).fillRect(clip, st::searchedBarBg);
+		QPainter(raw).fillRect(clip, SearchedBarBg(raw));
 	}, raw->lifetime());
 
 	delegate()->peerListSetAboveWidget(std::move(result));
@@ -2332,7 +2342,9 @@ void Suggestions::paintEvent(QPaintEvent *e) {
 	color.setAlphaF(color.alphaF() * opacity);
 
 	auto p = QPainter(this);
-	p.fillRect(e->rect(), color);
+	if (!::Ui::Platform::HasNativeGlass(this)) {
+		p.fillRect(e->rect(), color);
+	}
 	if (!_cache.isNull()) {
 		const auto slide = st::topPeers.height + st::searchedBarHeight;
 		p.setOpacity(opacity);

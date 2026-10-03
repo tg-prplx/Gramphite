@@ -76,6 +76,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "media/player/media_player_instance.h"
 #include "base/qthelp_regex.h"
 #include "base/options.h"
+#include "base/platform/base_platform_info.h"
 #include "mtproto/mtproto_dc_options.h"
 #include "core/update_checker.h"
 #include "core/shortcuts.h"
@@ -2092,7 +2093,7 @@ void MainWidget::showNewSection(
 		}, _thirdSection->lifetime());
 		if (!_thirdShadow) {
 			_thirdShadow.create(this);
-			_thirdShadow->show();
+			_thirdShadow->setVisible(!Platform::IsMac());
 			orderWidgets();
 		}
 		updateControlsGeometry();
@@ -2476,10 +2477,10 @@ QPixmap MainWidget::grabForShowAnimation(const Window::SectionSlideParams &param
 			width() - _dialogsWidth,
 			height() - sectionTop));
 		if (_sideShadow) {
-			_sideShadow->show();
+			_sideShadow->setVisible(!Platform::IsMac());
 		}
 		if (_thirdShadow) {
-			_thirdShadow->show();
+			_thirdShadow->setVisible(!Platform::IsMac());
 		}
 	}
 	if (_hider && hiderVisible) {
@@ -2541,6 +2542,22 @@ void MainWidget::showFinished() {
 }
 
 void MainWidget::paintEvent(QPaintEvent *e) {
+	if (Platform::IsMac() && _player && !_player->isHidden()) {
+		const auto player = _player->entity();
+		const auto position = player->mapTo(this, QPoint());
+		const auto area = QRect(position, player->size());
+		const auto clip = e->rect().intersected(area);
+		if (!clip.isEmpty()) {
+			auto p = QPainter(this);
+			p.translate(position.x(), 0);
+			Window::SectionWidget::PaintBackground(
+				p,
+				_controller->currentChatTheme(),
+				QSize(player->width(), height()),
+				clip.translated(-position.x(), 0),
+				_controller->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
+		}
+	}
 	if (_background) {
 		checkChatBackground();
 	}
@@ -2613,7 +2630,7 @@ void MainWidget::showAll() {
 		}
 	} else {
 		if (_sideShadow) {
-			_sideShadow->show();
+			_sideShadow->setVisible(!Platform::IsMac());
 		}
 		if (_hider) {
 			_hider->show();
@@ -2631,7 +2648,7 @@ void MainWidget::showAll() {
 			_thirdSection->show();
 		}
 		if (_thirdShadow) {
-			_thirdShadow->show();
+			_thirdShadow->setVisible(!Platform::IsMac());
 		}
 	}
 	if (_player) {

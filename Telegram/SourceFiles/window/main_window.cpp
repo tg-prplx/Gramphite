@@ -34,12 +34,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session_settings.h"
 #include "base/options.h"
 #include "base/crc32hash.h"
+#include "base/platform/base_platform_info.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/shadow.h"
 #include "ui/controls/title_sub_widget.h"
 #include "ui/controls/window_outdated_bar.h"
 #include "ui/controls/window_screen_reader_bar.h"
+#include "ui/abstract_button.h"
 #include "ui/painter.h"
 #include "ui/screen_reader_mode.h"
 #include "ui/ui_utility.h"
@@ -47,6 +49,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwidget.h" // session->content()->windowShown().
 #include "tray.h"
 #include "styles/style_window.h"
+#include "styles/style_info.h"
 #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
 
 #ifdef Q_OS_MAC
@@ -556,6 +559,7 @@ QRect MainWindow::desktopRect() const {
 
 void MainWindow::init() {
 	initHook();
+	setupMacTitle();
 
 	updatePalette();
 
@@ -577,6 +581,7 @@ void MainWindow::init() {
 
 void MainWindow::handleStateChanged(Qt::WindowState state) {
 	stateChangedHook(state);
+	updateTitleInset();
 	updateControlsGeometry();
 	if (state == Qt::WindowMinimized) {
 		controller().updateIsActiveBlur();
@@ -689,6 +694,48 @@ void MainWindow::refreshTitleWidget() {
 		setNativeFrame(false);
 		_titleShadow.destroy();
 	}
+}
+
+void MainWindow::setupMacTitle() {
+	if (!Platform::IsMac()) {
+		return;
+	}
+	setTitleStyle(st::macWindowTitle);
+	updateTitleInset();
+	setBodyTitleArea([=](QPoint point) {
+		using Flag = Ui::WindowTitleHitTestFlag;
+		const auto height = _titleInset.current();
+		if (point.y() < 0) {
+			return Flag::Move | Flag::Maximize;
+		} else if (!_titleInset.current() || point.y() >= height) {
+			return Ui::WindowTitleHitTestFlags();
+		}
+		const auto root = body().get();
+		for (auto widget = root->childAt(point)
+			; widget && widget != root
+			; widget = widget->parentWidget()) {
+			if (dynamic_cast<Ui::AbstractButton*>(widget)
+				|| widget->inherits("QTextEdit")
+				|| widget->inherits("QAbstractScrollArea")) {
+				return Ui::WindowTitleHitTestFlags();
+			}
+		}
+		return Flag::Move | Flag::Maximize;
+	});
+}
+
+void MainWindow::updateTitleInset() {
+	_titleInset = (Platform::IsMac() && !isFullScreen())
+		? std::max(nativeTitleHeight(), st::macWindowTitleInset)
+		: 0;
+}
+
+int MainWindow::titleInset() const {
+	return _titleInset.current();
+}
+
+rpl::producer<int> MainWindow::titleInsetValue() const {
+	return _titleInset.value();
 }
 
 void MainWindow::setupCanaryTitleLabel() {

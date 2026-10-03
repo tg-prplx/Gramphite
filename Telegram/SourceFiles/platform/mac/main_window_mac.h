@@ -41,6 +41,9 @@ protected:
 	void unreadCounterChangedHook() override;
 
 	void closeWithoutDestroy() override;
+	[[nodiscard]] int nativeTitleHeight() const override {
+		return _customTitleHeight;
+	}
 
 private:
 	friend class Private;

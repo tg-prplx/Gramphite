@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/shadow.h"
 #include "ui/image/image_prepare.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "chat_helpers/tabbed_selector.h"
 #include "window/window_session_controller.h"
 #include "main/main_session.h"
@@ -245,6 +246,23 @@ void TabbedPanel::paintEvent(QPaintEvent *e) {
 			_selector->afterShown();
 		}
 	}
+	const auto glass = Ui::Platform::HasNativeGlass(this);
+	if (glass) {
+		const auto shown = _a_opacity.value(_hiding ? 0. : 1.);
+		const auto opacity = showAnimating
+			? (shown * _a_show.value(1.))
+			: opacityAnimating
+			? shown
+			: (_hiding || isHidden())
+			? 0.
+			: 1.;
+		Ui::Platform::SetNativeGlass(
+			this,
+			innerRect(),
+			st::emojiPanRadius,
+			st::emojiPanBg->c);
+		Ui::Platform::SetNativeGlassOpacity(this, opacity);
+	}
 
 	if (showAnimating) {
 		Assert(_showAnimation != nullptr);
@@ -258,7 +276,9 @@ void TabbedPanel::paintEvent(QPaintEvent *e) {
 		hideFinished();
 	} else {
 		if (!_cache.isNull()) _cache = QPixmap();
-		_shadow.paint(p, innerRect(), st::emojiPanRadius);
+		if (!glass) {
+			_shadow.paint(p, innerRect(), st::emojiPanRadius);
+		}
 	}
 }
 
@@ -390,6 +410,9 @@ void TabbedPanel::startShowAnimation() {
 		_showAnimation = std::make_unique<Ui::PanelAnimation>(
 			_selector->st().showAnimation,
 			origin);
+		_showAnimation->setSkipShadow(Ui::Platform::HasNativeGlass(this));
+		_showAnimation->setTransparentContent(
+			Ui::Platform::HasNativeGlass(this));
 		auto inner = rect().marginsRemoved(st::emojiPanMargins);
 		_showAnimation->setFinalImage(
 			std::move(image),
@@ -517,7 +540,12 @@ QRect TabbedPanel::innerRect() const {
 }
 
 bool TabbedPanel::overlaps(const QRect &globalRect) const {
-	if (isHidden() || !_cache.isNull()) return false;
+	// Content below a glass panel shows through it, it must keep painting.
+	if (isHidden()
+		|| !_cache.isNull()
+		|| Ui::Platform::HasNativeGlass(this)) {
+		return false;
+	}
 
 	auto testRect = QRect(mapFromGlobal(globalRect.topLeft()), globalRect.size());
 	auto inner = rect().marginsRemoved(st::emojiPanMargins);

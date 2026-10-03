@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_translate_bar.h"
 
+#include "ui/widgets/menu/menu_common.h"
 #include "boxes/translate_box.h"
 #include "ui/boxes/about_cocoon_box.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -33,8 +34,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/painter.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "window/window_session_controller.h"
+#include "ui/controls/send_button.h"
 #include "styles/style_chat.h"
+#include "styles/style_chat_helpers.h"
 #include "styles/style_menu_icons.h"
 
 #include <QtGui/QtEvents>
@@ -124,7 +128,7 @@ void TwoTextAction::paint(Painter &p) {
 	if (selected && _st.itemBgOver->c.alpha() < 255) {
 		p.fillRect(0, 0, width(), _height, _st.itemBg);
 	}
-	p.fillRect(0, 0, width(), _height, selected ? _st.itemBgOver : _st.itemBg);
+	Ui::Menu::PaintItemBackground(p, _st, QRect(0, 0, width(), _height), selected);
 	if (isEnabled()) {
 		paintRipple(p, 0, 0);
 	}
@@ -200,7 +204,7 @@ QPoint TwoTextAction::prepareRippleStartPosition() const {
 }
 
 QImage TwoTextAction::prepareRippleMask() const {
-	return Ui::RippleAnimation::RectMask(size());
+	return Ui::Menu::PrepareItemRippleMask(size());
 }
 
 int TwoTextAction::contentHeight() const {
@@ -247,7 +251,9 @@ TranslateBar::TranslateBar(
 	_shadow->showOn(rpl::combine(
 		_wrap.shownValue(),
 		_wrap.heightValue(),
-		rpl::mappers::_1 && rpl::mappers::_2 > 0
+		[=](bool shown, int height) {
+			return shown && height > 0 && !Ui::Platform::NativeGlassSupported();
+		}
 	) | rpl::filter([=](bool shown) {
 		return (shown == _shadow->isHidden());
 	}));
@@ -288,11 +294,14 @@ void TranslateBar::setup(not_null<History*> history) {
 	};
 	const auto button = static_cast<Ui::AbstractButton*>(_wrap.entity());
 	button->resize(0, st::historyTranslateBarHeight);
-	button->setAttribute(Qt::WA_OpaquePaintEvent);
+	button->setAttribute(Qt::WA_OpaquePaintEvent, !Ui::Platform::NativeGlassSupported());
+	button->setAttribute(Qt::WA_NoSystemBackground, Ui::Platform::NativeGlassSupported());
 
 	button->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
-		QPainter(button).fillRect(clip, st::historyComposeButtonBg);
+		if (!Ui::Platform::HasNativeGlass(button)) {
+			QPainter(button).fillRect(clip, st::historyComposeButtonBg);
+		}
 	}, button->lifetime());
 
 	button->setClickedCallback([=] {

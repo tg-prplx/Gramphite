@@ -153,4 +153,14 @@ private:
 
 };
 
+[[nodiscard]] QRect ComposeFieldBackgroundRect(
+	not_null<const QWidget*> field,
+	not_null<const QWidget*> send,
+	int fieldTop);
+void PaintComposeFieldBackground(QPainter &p, QRect rect);
+void PaintFloatingCapsule(QPainter &p, QRect rect, const style::color &bg);
+void PaintComposeButtonCircle(
+	QPainter &p,
+	not_null<const QWidget*> button);
+
 } // namespace Ui

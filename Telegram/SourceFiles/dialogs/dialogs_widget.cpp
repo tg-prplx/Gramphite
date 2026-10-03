@@ -52,8 +52,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 #include "ui/screen_reader_mode.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "lang/lang_keys.h"
 #include "mainwindow.h"
+#include "window/window_adaptive.h"
 #include "mainwidget.h"
 #include "main/main_domain.h"
 #include "main/main_session.h"
@@ -68,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/shortcuts.h"
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
+#include "window/window_filters_menu.h"
 #include "window/window_slide_animation.h"
 #include "window/window_connecting_widget.h"
 #include "window/window_main_menu.h"
@@ -431,6 +434,13 @@ Widget::Widget(
 , _searchTimer([=] { search(); })
 , _peerSearch(&controller->session(), Api::PeerSearch::Type::WithSponsored)
 , _singleMessageSearch(&controller->session()) {
+	if (_layout != Layout::Child) {
+		// Child lists live inside and share the parent's backdrop.
+		setProperty(
+			"_td_nativeGlass",
+			::Ui::Platform::NativeGlassSupported());
+		Window::AddSideGlassPart(controller->widget()->bodyWidget(), this);
+	}
 	const auto makeChildListShown = [](PeerId peerId, float64 shown) {
 		return InnerWidget::ChildListShown{ peerId, shown };
 	};
@@ -742,10 +752,12 @@ Widget::Widget(
 	setupTouchChatPreview();
 
 	const auto overscrollBg = [=] {
-		return anim::color(
-			st::dialogsBg,
-			st::dialogsBgOver,
-			_childListShown.current());
+		return ::Ui::Platform::HasNativeGlass(this)
+			? QColor(Qt::transparent)
+			: anim::color(
+				st::dialogsBg,
+				st::dialogsBgOver,
+				_childListShown.current());
 	};
 	_scroll->setOverscrollBg(overscrollBg());
 	style::PaletteChanged(
@@ -1426,7 +1438,9 @@ void Widget::updateCommunityAddChatButton() {
 		const auto fadeHeight = st::communityAddChatButtonMargin.top()
 			+ st::communityAddChatButton.height
 			+ st::communityAddChatButtonMargin.bottom();
-		PaintBottomFade(p, entity->width(), fadeHeight, st::dialogsBg);
+		if (!::Ui::Platform::HasNativeGlass(entity)) {
+			PaintBottomFade(p, entity->width(), fadeHeight, st::dialogsBg);
+		}
 	});
 
 	_communityAddChat.reset(wrap.release());
@@ -1436,7 +1450,9 @@ void Widget::updateCommunityAddChatButton() {
 		object_ptr<Ui::RpWidget>(_innerList)));
 	const auto placeholder = _communityAddChatPlaceholder.get();
 	placeholder->paintOn([placeholder](QPainter &p) {
-		p.fillRect(placeholder->rect(), st::dialogsBg);
+		if (!::Ui::Platform::HasNativeGlass(placeholder)) {
+			p.fillRect(placeholder->rect(), st::dialogsBg);
+		}
 	});
 
 	raw->setParent(_scroll);
@@ -2566,10 +2582,9 @@ QPixmap Widget::grabForChatsFilterSlide() {
 	if (!hidden) {
 		_scrollToTop->hide();
 	}
-	auto result = Ui::GrabOpaque(
-		_scroll.data(),
-		_scroll->rect(),
-		st::dialogsBg->c);
+	auto result = ::Ui::Platform::HasNativeGlass(this)
+		? Ui::GrabWidget(_scroll.data(), _scroll->rect())
+		: Ui::GrabOpaque(_scroll.data(), _scroll->rect(), st::dialogsBg->c);
 	if (!hidden) {
 		_scrollToTop->show();
 	}
@@ -2584,13 +2599,16 @@ void Widget::startChatsFilterSlide(
 	_chatsFilterSlideCanvas = std::make_unique<Ui::RpWidget>(this);
 	const auto canvas = _chatsFilterSlideCanvas.get();
 	canvas->setAttribute(Qt::WA_TransparentForMouseEvents);
-	canvas->setAttribute(Qt::WA_OpaquePaintEvent);
+	const auto glass = ::Ui::Platform::HasNativeGlass(this);
+	canvas->setAttribute(Qt::WA_OpaquePaintEvent, !glass);
 	canvas->setGeometry(_scroll->geometry());
 	const auto animation
 		= canvas->lifetime().make_state<Ui::SlideAnimation>();
 	animation->setSnapshots(std::move(wasCache), std::move(nowCache));
 	canvas->paintOn([=](QPainter &p) {
-		p.fillRect(canvas->rect(), st::dialogsBg);
+		if (!glass) {
+			p.fillRect(canvas->rect(), st::dialogsBg);
+		}
 		animation->paintFrame(p, 0, 0, canvas->width());
 	});
 	canvas->show();
@@ -4520,7 +4538,11 @@ void Widget::updateControlsGeometry() {
 	if (width() < _narrowWidth) {
 		return;
 	}
-	auto filterAreaTop = 0;
+	const auto filterAreaTop = (_layout == Layout::Main
+		&& !controller()->filtersWidth()
+		&& !controller()->adaptive().isOneColumn())
+		? controller()->widget()->titleInset()
+		: 0;
 
 	const auto ratiow = anim::interpolate(
 		width(),
@@ -4864,14 +4886,26 @@ void Widget::paintEvent(QPaintEvent *e) {
 	if (r != rect()) {
 		p.setClipRect(r);
 	}
+	const auto glass = ::Ui::Platform::HasNativeGlass(this);
+	if (glass) {
+		// Let the native backdrop below the window show through.
+		p.setCompositionMode(QPainter::CompositionMode_Source);
+		p.fillRect(r, Qt::transparent);
+		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+		if (_layout != Layout::Child) {
+			Window::UpdateSideGlass(controller()->widget()->bodyWidget());
+		}
+	}
 	if (_showAnimation) {
 		_showAnimation->paintContents(p);
 		return;
 	}
-	const auto bg = anim::brush(
-		st::dialogsBg,
-		st::dialogsBgOver,
-		_childListShown.current());
+	const auto bg = glass
+		? QBrush(Qt::transparent)
+		: anim::brush(
+			st::dialogsBg,
+			st::dialogsBgOver,
+			_childListShown.current());
 	auto above = QRect(0, 0, width(), _scroll->y());
 	if (above.intersects(r)) {
 		p.fillRect(above.intersected(r), bg);

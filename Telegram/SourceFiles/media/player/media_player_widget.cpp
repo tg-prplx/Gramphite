@@ -7,6 +7,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/player/media_player_widget.h"
 
+#include "base/platform/base_platform_info.h"
+#include "mainwidget.h"
+#include "ui/chat/chat_theme.h"
+#include "ui/platform/ui_platform_utility.h"
+#include "window/section_widget.h"
+
 #include "platform/platform_specific.h"
 #include "data/data_document.h"
 #include "data/data_session.h"
@@ -87,10 +93,26 @@ Widget::Widget(
 	_speedToggle->finishAnimating();
 
 	setAttribute(Qt::WA_OpaquePaintEvent);
+	Ui::Platform::InitNativeGlassWithinWindow(this);
 	setMouseTracking(true);
 	resize(width(), st::mediaPlayerHeight + st::lineWidth);
 
 	setupRightControls();
+	if (Platform::IsMac()) {
+		_controller->activeChatValue(
+		) | rpl::map([=](Dialogs::Key key)
+				-> rpl::producer<std::shared_ptr<Ui::ChatTheme>> {
+			return key.peer()
+				? Window::ChatThemeValueFromPeer(_controller, key.peer())
+				: rpl::single(_controller->defaultChatTheme());
+		}) | rpl::flatten_latest() | rpl::map([](
+				const std::shared_ptr<Ui::ChatTheme> &theme) {
+			return rpl::single(rpl::empty) | rpl::then(
+				theme->repaintBackgroundRequests());
+		}) | rpl::flatten_latest() | rpl::on_next([=] {
+			update();
+		}, lifetime());
+	}
 
 	_volumeToggle->setAccessibleName(tr::lng_ringtones_box_volume(tr::now));
 	_repeatToggle->setAccessibleName(tr::lng_schedule_repeat_label(tr::now));
@@ -233,6 +255,9 @@ void Widget::setupRightControls() {
 	const auto raw = rightControls();
 	raw->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
+		if (Platform::IsMac()) {
+			return;
+		}
 		auto p = QPainter(raw);
 		const auto &icon = st::mediaPlayerControlsFade;
 		const auto fade = QRect(0, 0, icon.width(), raw->height());
@@ -289,7 +314,7 @@ void Widget::setShadowGeometryToLeft(int x, int y, int w, int h) {
 }
 
 void Widget::showShadowAndDropdowns() {
-	_shadow->show();
+	_shadow->setVisible(!Platform::IsMac());
 	_playbackSlider->setVisible(_type == AudioMsgId::Type::Song);
 	if (_volumeHidden) {
 		_volumeHidden = false;
@@ -405,11 +430,25 @@ void Widget::updateControlsWrapVisibility() {
 }
 
 void Widget::paintEvent(QPaintEvent *e) {
+	if (Ui::Platform::HasNativeGlass(this)) {
+		Ui::Platform::SetNativeGlass(this, rect(), 0, st::mediaPlayerBg->c);
+		return;
+	}
+	if (Platform::IsMac()) {
+		const auto content = _controller->content();
+		Window::SectionWidget::PaintBackground(
+			_controller->currentChatTheme(),
+			this,
+			content->height(),
+			-mapTo(content, QPoint()).y(),
+			e->rect(),
+			_controller->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
+	}
 	auto p = QPainter(this);
 	auto fill = e->rect().intersected(
 		QRect(0, 0, width(), st::mediaPlayerHeight + st::lineWidth));
 	if (!fill.isEmpty()) {
-		p.fillRect(fill, st::mediaPlayerBg);
+		p.fillRect(fill, Ui::ChatChromeBackgroundColor(st::mediaPlayerBg->c));
 	}
 }
 

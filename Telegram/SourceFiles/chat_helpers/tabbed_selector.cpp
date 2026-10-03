@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/cached_round_corners.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "window/window_session_controller.h"
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
@@ -76,6 +77,13 @@ private:
 
 	int _frameIntsPerLineAdd = 0;
 	bool _wasSectionIcons = false;
+	bool _transparent = false;
+
+public:
+	// Over a native glass backdrop the slide must not paint a background.
+	void setTransparent(bool transparent) {
+		_transparent = transparent;
+	}
 
 };
 
@@ -168,14 +176,16 @@ void TabbedSelector::SlideAnimation::paintFrame(
 		+ std::clamp(_innerWidth + leftCoord, 0, _innerWidth);
 	auto rightFrom = _innerLeft + std::clamp(rightCoord, 0, _innerWidth);
 	auto painterRightFrom = rightFrom / style::DevicePixelRatio();
-	if (opacity < 1.) {
+	if (opacity < 1. || _transparent) {
 		_frame.fill(Qt::transparent);
 	}
 	{
 		auto p = QPainter(&_frame);
 		p.setOpacity(opacity);
-		p.fillRect(_painterInnerLeft, _painterInnerTop, _painterInnerWidth, _painterCategoriesTop - _painterInnerTop, st.bg);
-		p.fillRect(_painterInnerLeft, _painterCategoriesTop, _painterInnerWidth, _painterInnerBottom - _painterCategoriesTop, _wasSectionIcons ? st.categoriesBg : st.bg);
+		if (!_transparent) {
+			p.fillRect(_painterInnerLeft, _painterInnerTop, _painterInnerWidth, _painterCategoriesTop - _painterInnerTop, st.bg);
+			p.fillRect(_painterInnerLeft, _painterCategoriesTop, _painterInnerWidth, _painterInnerBottom - _painterCategoriesTop, _wasSectionIcons ? st.categoriesBg : st.bg);
+		}
 		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 		if (leftTo > _innerLeft) {
 			p.setOpacity(opacity * leftAlpha);
@@ -892,11 +902,15 @@ void TabbedSelector::paintEvent(QPaintEvent *e) {
 }
 
 void TabbedSelector::paintSlideFrame(QPainter &p) {
-	if (_roundRadius > 0) {
-		paintBgRoundedPart(p);
-	} else if (_tabsSlider) {
-		p.fillRect(0, 0, width(), _tabsSlider->height(), _st.bg);
+	const auto glass = Ui::Platform::HasNativeGlass(this);
+	if (!glass) {
+		if (_roundRadius > 0) {
+			paintBgRoundedPart(p);
+		} else if (_tabsSlider) {
+			p.fillRect(0, 0, width(), _tabsSlider->height(), _st.bg);
+		}
 	}
+	_slideAnimation->setTransparent(glass);
 	auto slideDt = _a_slide.value(1.);
 	_slideAnimation->paintFrame(p, _st, slideDt, 1.);
 }
@@ -924,6 +938,10 @@ void TabbedSelector::paintBgRoundedPart(QPainter &p) {
 }
 
 void TabbedSelector::paintContent(QPainter &p) {
+	if (Ui::Platform::HasNativeGlass(this)) {
+		// The panel's native glass backdrop is the background.
+		return;
+	}
 	const auto &footerBg = hasSectionIcons() ? _st.categoriesBg : _st.bg;
 	if (_roundRadius > 0) {
 		paintBgRoundedPart(p);

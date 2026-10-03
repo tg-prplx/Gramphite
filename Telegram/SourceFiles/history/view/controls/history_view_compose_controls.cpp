@@ -1259,7 +1259,9 @@ ComposeControls::ComposeControls(
 , _field(
 	Ui::CreateChild<Ui::InputField>(
 		_wrap.get(),
-		_st.field,
+		(Platform::IsMac() && _regularWindow && !descriptor.stOverride)
+			? st::historyComposeGlassField
+			: _st.field,
 		Ui::InputField::Mode::MultiLine,
 		tr::lng_message_ph()))
 , _richDraftPreview(std::make_unique<Controls::RichDraftPreview>(
@@ -3148,7 +3150,9 @@ void ComposeControls::initField() {
 		}
 		return false;
 	});
-	InitMessageFieldFade(_field, _st.field.textBg);
+	if (!Platform::IsMac() || !_regularWindow) {
+		InitMessageFieldFade(_field, _st.field.textBg);
+	}
 	_field->setEditLinkCallback(
 		DefaultEditLinkCallback(_show, _field, &_st.boxField));
 	_field->setEditLanguageCallback(DefaultEditLanguageCallback(_show));
@@ -4911,6 +4915,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 			: 0)
 		- (_attachToggle ? _attachToggle->width() : 0)
 		- (_sendAs ? _sendAs->width() : 0)
+		- (_backgroundRect ? 0 : st::historyComposeFieldSkip)
 		- _st.padding.right()
 		- _send->width()
 		- (_editStars ? _editStars->width() : 0)
@@ -4972,6 +4977,9 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 	if (_sendAs) {
 		_sendAs->moveToLeft(left, buttonsTop);
 		left += _sendAs->width();
+	}
+	if (!_backgroundRect) {
+		left += st::historyComposeFieldSkip;
 	}
 	const auto fieldHeight = composeFieldHeight();
 	const auto fieldTop = size.height() - _st.padding.bottom() - fieldHeight;
@@ -5624,6 +5632,20 @@ void ComposeControls::paintBackground(QPainter &p, QRect full, QRect clip) {
 				- _st.starsSkip);
 		}
 		p.drawRoundedRect(full, _st.radius, _st.radius);
+	} else if (!_field->isHidden()) {
+		if (!Platform::IsMac() || !_regularWindow) {
+			p.fillRect(clip, _st.bg);
+		}
+		Ui::PaintComposeFieldBackground(
+			p,
+			Ui::ComposeFieldBackgroundRect(
+				_field.get(),
+				_send.get(),
+				_field->y()));
+		if (_attachToggle) {
+			Ui::PaintComposeButtonCircle(p, _attachToggle);
+		}
+		Ui::PaintComposeButtonCircle(p, _send.get());
 	} else {
 		p.fillRect(clip, _st.bg);
 	}

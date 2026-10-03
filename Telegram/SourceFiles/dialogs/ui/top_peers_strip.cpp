@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/dynamic_image.h"
 #include "ui/painter.h"
 #include "ui/unread_badge_paint.h"
+#include "ui/platform/ui_platform_utility.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_widgets.h"
 
@@ -136,7 +137,11 @@ void TopPeersStrip::setupHeader() {
 	}, _header.lifetime());
 
 	_header.paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(&_header).fillRect(clip, st::searchedBarBg);
+		auto bg = st::searchedBarBg->c;
+		if (::Ui::Platform::HasNativeGlass(&_header)) {
+			bg.setAlphaF(bg.alphaF() * 0.5);
+		}
+		QPainter(&_header).fillRect(clip, bg);
 	}, _header.lifetime());
 }
 

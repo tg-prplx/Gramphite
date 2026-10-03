@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/send_button.h"
 
+#include "ui/chat/chat_theme.h"
+#include "ui/platform/ui_platform_utility.h"
+
 #include "lang/lang_tag.h"
 #include "lottie/lottie_icon.h"
 #include "ui/effects/ripple_animation.h"
@@ -707,6 +710,72 @@ QImage SendStarButton::prepareRippleMask() const {
 
 QPoint SendStarButton::prepareRippleStartPosition() const {
 	return mapFromGlobal(QCursor::pos());
+}
+
+QRect ComposeFieldBackgroundRect(
+		not_null<const QWidget*> field,
+		not_null<const QWidget*> send,
+		int fieldTop) {
+	const auto first = field->geometry();
+	const auto last = send->geometry();
+	const auto &margins = st::historyComposeFieldBgMargins;
+	const auto rtl = (last.x() < first.x());
+	const auto left = rtl
+		? (last.x() + last.width() + margins.right())
+		: (first.x() - std::abs(margins.left()));
+	const auto right = rtl
+		? (first.x() + first.width() + std::abs(margins.left()))
+		: (last.x() - margins.right());
+	const auto half = st::historyComposeCircleSize / 2;
+	const auto center = last.y() + last.height() / 2;
+	const auto bottom = center + half;
+	const auto top = std::min(center - half, fieldTop - margins.top());
+	return QRect(left, top, right - left, bottom - top);
+}
+
+void PaintComposeFieldBackground(QPainter &p, QRect rect) {
+	if (rect.isEmpty()) {
+		return;
+	}
+	PaintFloatingCapsule(p, rect, st::historyComposeFieldBg);
+}
+
+void PaintFloatingCapsule(QPainter &p, QRect rect, const style::color &bg) {
+	if (rect.isEmpty()) {
+		return;
+	}
+	if (const auto widget = dynamic_cast<const QWidget*>(p.device());
+		widget && widget->property("_td_systemComposeGlass").toBool()) {
+		return;
+	}
+	const auto radius = std::min(
+		st::historyComposeFieldBgRadius,
+		rect.height() / 2);
+	auto hq = PainterHighQualityEnabler(p);
+	p.setPen(QPen(st::historyComposeFieldBorder, 1.));
+	p.setBrush(ChatChromeBackgroundColor(bg->c));
+	p.drawRoundedRect(
+		QRectF(rect).marginsRemoved({ 0.5, 0.5, 0.5, 0.5 }),
+		radius - 0.5,
+		radius - 0.5);
+}
+
+void PaintComposeButtonCircle(
+		QPainter &p,
+		not_null<const QWidget*> button) {
+	if (button->isHidden()) {
+		return;
+	}
+	const auto size = st::historyComposeCircleSize;
+	const auto geometry = button->geometry();
+	PaintFloatingCapsule(
+		p,
+		QRect(
+			geometry.x() + (geometry.width() - size) / 2,
+			geometry.y() + (geometry.height() - size) / 2,
+			size,
+			size),
+		st::historyComposeFieldBg);
 }
 
 } // namespace Ui
